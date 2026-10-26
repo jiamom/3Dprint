@@ -4,8 +4,8 @@ window.KeyringMail = (() => {
   const maxBytes = 10 * 1024 * 1024;
   function open() {
     const url = location.protocol === 'file:'
-      ? new URL('https://jiamom.github.io/3Dprint/tools/Send_3MF.html?v=mail-1')
-      : new URL('Send_3MF.html?v=mail-1', location.href);
+      ? new URL('https://jiamom.github.io/3Dprint/tools/Send_3MF.html?v=mail-2')
+      : new URL('Send_3MF.html?v=mail-2', location.href);
     let popup, timer, resolveReady, rejectReady;
     const ready = new Promise((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
     // Generation can fail before the ready promise is awaited.

@@ -48,6 +48,8 @@ test('mail form attaches exact bytes once and fixes recipient server-side endpoi
   assert.equal(r.submissions,1);
   const form=r.forms[0];assert.equal(form.action,'https://formsubmit.co/10040mee@gmail.com');
   assert.equal(form.method,'POST');assert.equal(form.enctype,'multipart/form-data');
+  assert.equal(form.children.find(x=>x.name==='_url').value,'https://jiamom.github.io/3Dprint/index.html');
+  assert.equal(form.children.find(x=>x.name==='_next').value,'https://jiamom.github.io/3Dprint/index.html?v=mail-2');
   const attachment=form.children.find(x=>x.name==='attachment').files[0];
   assert.equal(attachment.name,'한글.3mf');assert.equal(await attachment.text(),'3mf-test-bytes');
   assert(!form.children.find(x=>x.name==='_subject').value.includes('\n'));
@@ -64,6 +66,6 @@ test('editor pages parse and expose mail buttons after save',()=>{
     const html=fs.readFileSync(path.join(root,filename),'utf8');
     for(const m of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))if(m[1].trim())new vm.Script(m[1]);
     assert(html.includes('id="sendMail"'));assert(html.indexOf('id="sendMail"')>html.indexOf('id="download"'));
-    assert(html.includes('keyring-mail.js?v=mail-1'));
+    assert(html.includes('keyring-mail.js?v=mail-2'));
   }
 });

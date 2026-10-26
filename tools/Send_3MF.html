@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>3MF 메일 보내기</title>
+<style>body{font:15px/1.8 system-ui,sans-serif;background:#f4f5ef;color:#263e2e;margin:0;padding:32px}main{max-width:540px;margin:40px auto;background:white;padding:28px;border:1px solid #dfe5d7;border-radius:16px}h1{font-size:24px}p{overflow-wrap:anywhere}small{color:#65775b}</style></head>
+<body><main><h1>3MF 메일 보내기</h1><p>받는 사람: <strong>10040mee@gmail.com</strong></p><p id="status" role="status">키링 파일을 기다리고 있습니다…</p><small>3MF 파일과 파일명이 FormSubmit을 통해 위 주소로 전송됩니다. 첫 사용 시 받은편지함 또는 스팸함에서 활성화 메일을 확인해 주세요. 활성화 후 파일을 다시 보내 주세요.</small></main>
+<script>
+(() => {
+  const status = document.getElementById('status'), source = window.opener;
+  if (!source) { status.textContent = '키링 제작 화면의 “메일 보내기” 버튼을 눌러 주세요.'; return; }
+  let submitted = false;
+  const timer = setTimeout(() => { if (!submitted) status.textContent = '파일을 받지 못했습니다. 이 창을 닫고 제작 화면에서 다시 시도해 주세요.'; }, 45000);
+  window.addEventListener('message', event => {
+    if (submitted || event.source !== source || ![location.origin, 'null'].includes(event.origin) || event.data?.type !== 'keyring-mail-file') return;
+    try {
+      const { file, filename, title } = event.data;
+      if (!(file instanceof Blob) || !file.size || file.size > 10 * 1024 * 1024 || typeof filename !== 'string' || !/\.3mf$/i.test(filename)) throw Error('10MB 이하의 3MF 파일이 필요합니다.');
+      const form = document.createElement('form');
+      form.method = 'POST'; form.action = 'https://formsubmit.co/10040mee@gmail.com'; form.enctype = 'multipart/form-data';
+      const field = (name, value) => { const input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value; form.append(input); };
+      field('_subject', '뱀부랩 3MF · ' + String(title || filename).replace(/[\r\n]/g, ' ').slice(0,120));
+      field('_template', 'table'); field('_url', location.href);
+      field('파일명', filename); field('문구', String(title || '').slice(0,200));
+      field('message', '뱀부랩 메이커 스튜디오에서 만든 3MF 파일입니다. 첨부파일을 Bambu Studio에서 열어 주세요.');
+      const input = document.createElement('input'); input.type = 'file'; input.name = 'attachment';
+      const transfer = new DataTransfer(); transfer.items.add(new File([file], filename, {type:'model/3mf'})); input.files = transfer.files;
+      if (input.files.length !== 1) throw Error('첨부파일을 준비하지 못했습니다. 최신 브라우저에서 다시 시도해 주세요.');
+      form.append(input); form.hidden = true; document.body.append(form);
+      submitted = true; clearTimeout(timer);
+      status.textContent = filename + ' · 메일 전송 서비스로 연결하고 있습니다. 다음 화면에서 인증 또는 전송 결과를 확인하세요.';
+      window.opener = null;
+      HTMLFormElement.prototype.submit.call(form);
+    } catch (error) { status.textContent = '전송 준비 실패: ' + error.message; }
+  });
+  source.postMessage({type:'keyring-mail-ready'}, '*');
+})();
+</script></body></html>

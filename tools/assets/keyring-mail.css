@@ -1,0 +1,5 @@
+.keyring-mail-button{display:block;width:100%;margin-top:10px!important;padding:13px 16px;border:1px solid #96ad88!important;border-radius:9px;background:#edf4e7!important;color:#36512f!important;font:600 14px system-ui,sans-serif;cursor:pointer}
+.keyring-mail-button:hover{background:#e0edd7!important}
+.keyring-mail-button:disabled{opacity:.5;cursor:wait}
+.keyring-mail-note{font:12px/1.7 system-ui,sans-serif;color:#6c7b63;margin:9px 0 0;overflow-wrap:anywhere}
+.records-detail-actions .keyring-mail-button{flex-basis:100%;order:1}

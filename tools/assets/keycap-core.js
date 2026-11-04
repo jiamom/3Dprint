@@ -33,12 +33,37 @@ function keycapBody(size,height,hole) {
   }
   return repair(mesh);
 }
+// A shallow, blind pocket: the floor remains solid beneath the lettering.
+function keycapPocket(outline,pocket,thickness,depth) {
+  const mesh=makeMesh(),floor=thickness-depth;
+  surface(mesh,outline,0,false);walls(mesh,outline,0,thickness);
+  surface(mesh,clip(pathsOf(outline),pathsOf(pocket),ClipperLib.ClipType.ctDifference),thickness,true);
+  surface(mesh,pocket,floor,true);
+  const inside=makeMesh();walls(inside,pocket,floor,thickness);
+  const ids=inside.v.map(v=>vertex(mesh,...v));inside.f.forEach(f=>mesh.f.push(f.map(i=>ids[i]).reverse()));
+  return repair(mesh);
+}
+function keycapOffset(tree,distance) {
+  const offset=new ClipperLib.ClipperOffset(2,.01*UNIT),paths=[];
+  offset.AddPaths(pathsOf(tree),ClipperLib.JoinType.jtRound,ClipperLib.EndType.etClosedPolygon);offset.Execute(paths,distance*UNIT);
+  return clip(paths);
+}
 function makeKeycap(font,letter,settings) {
-  const {size,height,hole}=settings,topSize=size-3,topZ=height+1.2,letterZ=topZ+.8;
+  const {size,height,hole=0}=settings,topSize=size-3,lidThickness=2.4,depth=settings.recessDepth??.6,clearance=settings.clearance??.15,letterThickness=1.4;
+  if(depth<.2||depth>1.2||clearance<.05||clearance>.4)throw Error('홈 깊이와 조립 여유를 확인해 주세요.');
   let text=textContours(font,letter,size*.55,'center',0,0);
   const b=boundsOf(pathsOf(text)),ratio=Math.min(1,(topSize-3)/b.width,(topSize-3)/b.height);
   if(ratio<1)text=clip(pathsOf(text).map(p=>p.map(q=>({X:Math.round(q.X*ratio),Y:Math.round(q.Y*ratio)}))));
-  const body=keycapBody(size,height,hole),topTree=keycapRoundedSquare(topSize,Math.min(2.8,topSize*.2)),top=extrude(topTree,height,topZ),letters=extrude(text,topZ,letterZ);
+  const pocket=keycapOffset(text,clearance),topTree=keycapRoundedSquare(topSize,Math.min(2.8,topSize*.2));
+  const outside=clip(pathsOf(pocket),pathsOf(topTree),ClipperLib.ClipType.ctDifference);
+  if(pathsOf(outside).length)throw Error('글자 홈이 뚜껑 밖으로 나갑니다. 글꼴이나 크기를 바꿔 주세요.');
+  const body=keycapBody(size,height,hole),top=keycapPocket(topTree,pocket,lidThickness,depth),letters=extrude(text,0,letterThickness);
   for(const mesh of [body,top,letters]){const report=manifoldReport(mesh);if(report.badEdges||report.degenerate)throw Error('모델 메시를 완성하지 못했습니다. 크기나 글꼴을 변경해 주세요.');}
-  return {body,top,letters,outline:keycapRoundedSquare(size,Math.min(3.5,size*.2)),topTree,text,height:letterZ};
+  return {body,top,letters,outline:keycapRoundedSquare(size,Math.min(3.5,size*.2)),topTree,text,pocket,lidThickness,depth,clearance,letterThickness,height:height+lidThickness-depth+letterThickness};
+}
+// Each print object starts on the bed; assembled offsets are for preview only.
+function keycapPrintObjects(model,settings,colors,letter,only='all') {
+  const meshes=[model.body,model.top,model.letters],names=['Body','Lid','Letter'],objects=[];
+  meshes.forEach((mesh,i)=>{if(only!=='all'&&Number(only)!==i)return;objects.push({name:names[i]+'_'+letter,position:[10+settings.size/2+(only==='all'?i*(settings.size+6):0),10+settings.size/2,0],parts:[{name:names[i],mesh,color:colors[i]}]});});
+  return objects;
 }

@@ -20,15 +20,16 @@ test('one keycap replaces its letter and exports three independently chosen colo
   e.ids.alphabet.children.find(b=>b.textContent==='Z').onclick();e.flush();assert.equal(e.ids.capName.value,'Z');assert.equal(e.ids.capCount.textContent,'1 CAP');
   for(const [id,color] of [['bodyColor','#123456'],['topColor','#ABCDEF'],['letterColor','#FEDCBA']]){e.ids[id].value=color;e.ids[id].events.input();e.flush();}
   e.ids.alphabet.children.find(b=>b.textContent==='B').onclick();e.flush();assert.equal(e.ids.capName.value,'B');assert.equal(e.ids.bodyColor.value,'#123456');assert.equal(e.ids.topColor.value,'#ABCDEF');assert.equal(e.ids.letterColor.value,'#FEDCBA');
-  e.ids.capDownload.onclick();assert.equal(e.filename,'Keycap_B.3mf');
+  e.ids.capDownload.onclick();assert.equal(e.filename,'Keycap_B_Parts.3mf');
   const files=e.context.fflate.unzipSync(new Uint8Array(await e.blob.arrayBuffer())),project=JSON.parse(e.context.fflate.strFromU8(files['Metadata/project_settings.config']));assert.deepEqual(Array.from(project.filament_colour),['#123456','#ABCDEF','#FEDCBA']);
-  const model=e.context.fflate.strFromU8(files['3D/3dmodel.model']);assert.equal((model.match(/<item /g)||[]).length,1);
+  const model=e.context.fflate.strFromU8(files['3D/3dmodel.model']);assert.equal((model.match(/<item /g)||[]).length,3);
   const settings=e.context.fflate.strFromU8(files['Metadata/model_settings.config']);for(let i=1;i<=3;i++)assert(settings.includes('key="extruder" value="'+i+'"'));
+  e.ids.lidDownload.onclick();assert.equal(e.filename,'Keycap_B_Lid.3mf');const lidFiles=e.context.fflate.unzipSync(new Uint8Array(await e.blob.arrayBuffer()));assert.equal((e.context.fflate.strFromU8(lidFiles['3D/3dmodel.model']).match(/<item /g)||[]).length,1);assert.deepEqual(JSON.parse(e.context.fflate.strFromU8(lidFiles['Metadata/project_settings.config'])).filament_colour,['#ABCDEF']);
 });
 
-test('empty names and unsafe hole dimensions block export; valid input recovers',()=>{
+test('empty letters and invalid recess depth block export; valid input recovers',()=>{
   const e=editor();e.ids.resetName.onclick();e.flush();assert.equal(e.ids.capDownload.disabled,true);assert.match(e.ids.capStatus.textContent,/한 글자/);
   e.ids.capName.value='ab1한글';e.ids.capName.events.input();e.flush();assert.equal(e.ids.capName.value,'A');assert.equal(e.ids.capDownload.disabled,false);
-  e.ids.capHeight.value='5';e.ids.capHole.value='5';e.ids.capHole.events.input();e.flush();assert.equal(e.ids.capDownload.disabled,true);assert.match(e.ids.capStatus.textContent,/최소 1mm/);
-  e.ids.withHole.checked=false;e.ids.withHole.events.input();e.flush();assert.equal(e.ids.capDownload.disabled,false);
+  e.ids.recessDepth.value='3';e.ids.recessDepth.events.input();e.flush();assert.equal(e.ids.capDownload.disabled,true);assert.match(e.ids.capStatus.textContent,/홈 깊이/);
+  e.ids.recessDepth.value='.6';e.ids.recessDepth.events.input();e.flush();assert.equal(e.ids.capDownload.disabled,false);
 });

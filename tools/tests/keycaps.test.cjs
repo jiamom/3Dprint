@@ -1,7 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const root=path.join(__dirname,'../..');
-const ctx={navigator:{userAgent:'node'},TextDecoder,TextEncoder,Uint8Array,ArrayBuffer,DataView,console};ctx.window=ctx;ctx.self=ctx;vm.createContext(ctx);
+const ctx={navigator:{userAgent:'node'},TextDecoder,TextEncoder,Uint8Array,ArrayBuffer,DataView,console,atob:s=>Buffer.from(s,'base64').toString('binary')};ctx.window=ctx;ctx.self=ctx;vm.createContext(ctx);
 for(const name of ['clipper','earcut','fflate','opentype','mesh-utils','name-keyring-core','bambu-project-defaults','bambu-3mf','keycap-core'])vm.runInContext(fs.readFileSync(path.join(root,'tools/assets/'+name+'.js'),'utf8'),ctx);
 ctx.fontBytes=Uint8Array.from(fs.readFileSync(path.join(root,'fonts/otf/Chicalo-ZpdvB.otf'))).buffer;
 vm.runInContext('var capFont=opentype.parse(fontBytes)',ctx);
@@ -39,5 +39,19 @@ test('the new page and menu scripts parse and load all required local assets',()
     const html=fs.readFileSync(path.join(root,filename),'utf8');
     for(const m of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))if(m[1].trim())new vm.Script(m[1]);
     for(const m of html.matchAll(/<script src="([^"?]+)(?:\?[^"]*)?"/g))if(!m[1].startsWith('data:'))assert(fs.existsSync(path.resolve(path.dirname(path.join(root,filename)),m[1])),m[1]);
+  }
+});
+
+
+test('letter pocket is blind, has assembly clearance, and removes exactly its volume',()=>{
+  const result=vm.runInContext(`(()=>{const c=makeKeycap(capFont,'B',{size:18,height:6,recessDepth:.6,clearance:.15});const volume=m=>Math.abs(m.f.reduce((sum,f)=>{const[a,b,c]=f.map(i=>m.v[i]);return sum+(a[0]*(b[1]*c[2]-b[2]*c[1])+a[1]*(b[2]*c[0]-b[0]*c[2])+a[2]*(b[0]*c[1]-b[1]*c[0]))/6},0));const area=tree=>Math.abs(pathsOf(tree).reduce((n,p)=>n+ClipperLib.Clipper.Area(p),0))/UNIT**2;return {removed:volume(extrude(c.topTree,0,c.lidThickness))-volume(c.top),expected:area(c.pocket)*c.depth,larger:area(c.pocket)>area(c.text),minZ:Math.min(...c.top.v.map(v=>v[2])),floorZ:c.lidThickness-c.depth,hasFloor:c.top.v.some(v=>Math.abs(v[2]-(c.lidThickness-c.depth))<1e-6),objects:keycapPrintObjects(c,{size:18},['#123456','#abcdef','#fedcba'],'B').map(o=>({x:o.position[0],minZ:Math.min(...o.parts[0].mesh.v.map(v=>v[2]))}))}})()`,ctx);
+  assert(Math.abs(result.removed-result.expected)<.0001);assert(result.larger);assert.equal(result.minZ,0);assert(result.floorZ>1);assert(result.hasFloor);assert.equal(result.objects.length,3);for(let i=0;i<3;i++){assert.equal(result.objects[i].minZ,0);if(i)assert(result.objects[i].x-result.objects[i-1].x>=24);}
+});
+
+test('all font and letter choices produce closed separate parts with a recessed lid',()=>{
+  vm.runInContext(fs.readFileSync(path.join(root,'fonts/keyring-fonts.js'),'utf8'),ctx);for(let i=12;i<=17;i++)vm.runInContext(fs.readFileSync(path.join(root,'fonts/keyring-font-'+i+'.js'),'utf8'),ctx);
+  for(let i=0;i<6;i++)for(const letter of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'){
+    ctx.fontIndex=i;ctx.letter=letter;
+    assert.equal(vm.runInContext(`(()=>{const f=opentype.parse(Uint8Array.from(atob(BAMBU_FONTS[fontIndex].data),c=>c.charCodeAt(0)).buffer),m=makeKeycap(f,letter,{size:18,height:6});return [m.body,m.top,m.letters].every(p=>{const r=manifoldReport(p);return !r.badEdges&&!r.degenerate})})()`,ctx),true,i+':'+letter);
   }
 });

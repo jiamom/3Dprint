@@ -88,7 +88,16 @@ function keycapSwitchBody(size,height,radius,fit=0,settings={}){
   const m=KEYCAP_SWITCH,lift=height-m.sampleHeight,outline=keycapRoundedSquare(size,radius),mount=keycapRectangle(m.mountWidth+2*fit,m.mountDepth+2*fit,1.5),throat=keycapRectangle(m.throatWidth+2*fit,m.throatDepth+2*fit),cavity=keycapRoundedSquare(size-4.8,Math.max(0,radius-2.4));
   let layers=[{tree:outline,z0:0,z1:m.floor+lift},{tree:keycapDifference(outline,mount),z0:m.floor+lift,z1:m.shoulder+lift},{tree:keycapDifference(outline,throat),z0:m.shoulder+lift,z1:m.cavityStart+lift},{tree:keycapDifference(outline,cavity),z0:m.cavityStart+lift,z1:height}];
   const ring=keycapRing(outline,settings);
-  if(ring){layers=layers.flatMap(layer=>{const sections=[],end=Math.min(layer.z1,ring.thickness);if(layer.z0<end)sections.push({tree:clip([...pathsOf(layer.tree),...pathsOf(ring.tree)]),z0:layer.z0,z1:end});if(layer.z1>Math.max(layer.z0,ring.thickness))sections.push({...layer,z0:Math.max(layer.z0,ring.thickness)});return sections;});}
+  if(ring){
+    ring.z0=(height-ring.thickness)/2;ring.z1=ring.z0+ring.thickness;
+    layers=layers.flatMap(layer=>{
+      const sections=[],start=Math.max(layer.z0,ring.z0),end=Math.min(layer.z1,ring.z1);
+      if(layer.z0<Math.min(layer.z1,ring.z0))sections.push({...layer,z1:Math.min(layer.z1,ring.z0)});
+      if(start<end)sections.push({tree:clip([...pathsOf(layer.tree),...pathsOf(ring.tree)]),z0:start,z1:end});
+      if(layer.z1>Math.max(layer.z0,ring.z1))sections.push({...layer,z0:Math.max(layer.z0,ring.z1)});
+      return sections;
+    });
+  }
   return {body:keycapLayers(layers),outline:ring?clip([...pathsOf(outline),...pathsOf(ring.tree)]):outline,cavity,mount,throat,ring};
 }
 function makeKeycap(font,letter,settings) {

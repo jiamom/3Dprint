@@ -84,3 +84,8 @@ test('rings stay attached and watertight around every side without cutting the s
 test('large right-hand ring exports without overlapping the lid and letter',()=>{
   const result=vm.runInContext(`(()=>{const s={size:22,height:18,withRing:true,ringAngle:90,ringHole:10,ringWall:4,ringThickness:6},m=makeKeycap(capFont,'A',s);return keycapPrintObjects(m,s,['#F22974','#FFDF31','#F22974'],'A').map(o=>{const b=keycapMeshBounds(o.parts[0].mesh);return {minX:b.x0+o.position[0],maxX:b.x1+o.position[0],minY:b.y0+o.position[1]}})})()`,ctx);for(let i=0;i<3;i++){assert(result[i].minX>=10-1e-6);assert(result[i].minY>=10-1e-6);if(i)assert(result[i].minX-result[i-1].maxX>=6-1e-6);}
 });
+
+test('ring geometry stays centred vertically as body height and ring thickness change',()=>{
+  const ranges=vm.runInContext(`(()=>{const results=[];for(const height of [17.3,18,30])for(const thickness of [2,3,6]){const frame=keycapSwitchBody(22,height,3.5,0,{withRing:true,ringThickness:thickness}),z=frame.body.v.filter(v=>v[1]>11.01).map(v=>v[2]);results.push({height,thickness,min:Math.min(...z),max:Math.max(...z),bad:manifoldReport(frame.body).badEdges});}return results;})()`,ctx);
+  for(const r of ranges){assert(Math.abs(r.min-(r.height-r.thickness)/2)<1e-6);assert(Math.abs(r.max-(r.height+r.thickness)/2)<1e-6);assert.equal(r.bad,0);}
+});

@@ -49,21 +49,46 @@ function keycapOffset(tree,distance) {
   offset.AddPaths(pathsOf(tree),ClipperLib.JoinType.jtRound,ClipperLib.EndType.etClosedPolygon);offset.Execute(paths,distance*UNIT);
   return clip(paths);
 }
+// Measurements from the supplied CAT clicker: millimetres, kept independent of outer styling.
+const KEYCAP_SWITCH={sampleHeight:17.2372,floor:1.6,shoulder:7.9972,cavityStart:9.4473,mountWidth:15.538,mountDepth:15.4518,throatWidth:13.8642,throatDepth:13.8376,stemDepth:5.6374,stemDiameter:5.51,crossSpan:4.0386,crossArm:1.1938};
+function keycapRectangle(width,depth,radius=0){
+  return clip(pathsOf(keycapRoundedSquare(width,radius)).map(p=>p.map(v=>({X:v.X,Y:Math.round(v.Y*depth/width)}))));
+}
+function keycapDifference(a,b){return clip(pathsOf(a),pathsOf(b),ClipperLib.ClipType.ctDifference);}
+// Build a closed solid from horizontal sections, including blind cavities and ledges.
+function keycapLayers(layers){
+  const mesh=makeMesh();surface(mesh,layers[0].tree,layers[0].z0,false);
+  layers.forEach((layer,i)=>{
+    walls(mesh,layer.tree,layer.z0,layer.z1);
+    if(i+1<layers.length){const next=layers[i+1];surface(mesh,keycapDifference(layer.tree,next.tree),layer.z1,true);surface(mesh,keycapDifference(next.tree,layer.tree),layer.z1,false);}
+    else surface(mesh,layer.tree,layer.z1,true);
+  });return repair(mesh);
+}
+function keycapSwitchBody(size,height,radius,fit=0){
+  if(size<22)throw Error('스위치 장착 공간을 위해 한 변을 최소 22mm 이상으로 설정해 주세요.');
+  const m=KEYCAP_SWITCH,lift=height-m.sampleHeight,outline=keycapRoundedSquare(size,radius),mount=keycapRectangle(m.mountWidth+2*fit,m.mountDepth+2*fit,1.5),throat=keycapRectangle(m.throatWidth+2*fit,m.throatDepth+2*fit),cavity=keycapRoundedSquare(size-4.8,Math.max(0,radius-2.4));
+  const body=keycapLayers([{tree:outline,z0:0,z1:m.floor+lift},{tree:keycapDifference(outline,mount),z0:m.floor+lift,z1:m.shoulder+lift},{tree:keycapDifference(outline,throat),z0:m.shoulder+lift,z1:m.cavityStart+lift},{tree:keycapDifference(outline,cavity),z0:m.cavityStart+lift,z1:height}]);
+  return {body,outline,cavity,mount,throat};
+}
 function makeKeycap(font,letter,settings) {
-  const {size,height,hole=0}=settings,topSize=size-3,lidThickness=2.4,depth=settings.recessDepth??.6,clearance=settings.clearance??.15,letterThickness=1.4;
+  const {size,height}=settings,topSize=size-3,lidThickness=2.4,depth=settings.recessDepth??.6,clearance=settings.clearance??.15,letterThickness=1.4,fit=settings.switchFit??0;
   if(!Number.isFinite(height)||height<KEYCAP_MIN_BODY_HEIGHT)throw Error('몸체 높이는 최소 '+KEYCAP_MIN_BODY_HEIGHT+'mm 이상으로 설정해 주세요.');
   const radius=settings.roundCorners===false?0:Math.min(settings.cornerRadius??3.5,size/2),topRadius=Math.max(0,radius-1.5);
   if(!Number.isFinite(radius)||radius<0)throw Error('모서리 둥글기를 확인해 주세요.');
-  if(depth<.2||depth>1.2||clearance<.05||clearance>.4)throw Error('홈 깊이와 조립 여유를 확인해 주세요.');
+  if(depth<.2||depth>1.2||clearance<.05||clearance>.4||fit<0||fit>.2)throw Error('홈 깊이와 조립 여유를 확인해 주세요.');
   let text=textContours(font,letter,size*.55,'center',0,0);
   const b=boundsOf(pathsOf(text)),ratio=Math.min(1,(topSize-3)/b.width,(topSize-3)/b.height);
   if(ratio<1)text=clip(pathsOf(text).map(p=>p.map(q=>({X:Math.round(q.X*ratio),Y:Math.round(q.Y*ratio)}))));
   const pocket=keycapOffset(text,clearance),topTree=keycapRoundedSquare(topSize,topRadius);
-  const outside=clip(pathsOf(pocket),pathsOf(topTree),ClipperLib.ClipType.ctDifference);
-  if(pathsOf(outside).length)throw Error('글자 홈이 뚜껑 밖으로 나갑니다. 글꼴이나 크기를 바꿔 주세요.');
-  const body=keycapBody(size,height,hole,radius),top=keycapPocket(topTree,pocket,lidThickness,depth),letters=extrude(text,0,letterThickness);
+  if(pathsOf(keycapDifference(pocket,topTree)).length)throw Error('글자 홈이 뚜껑 밖으로 나갑니다. 글꼴이나 크기를 바꿔 주세요.');
+  const frame=keycapSwitchBody(size,height,radius,fit),m=KEYCAP_SWITCH;
+  const cross=clip([...pathsOf(keycapRectangle(m.crossSpan+2*fit,m.crossArm+2*fit)),...pathsOf(keycapRectangle(m.crossArm+2*fit,m.crossSpan+2*fit))]);
+  const stem=keycapDifference(clip([circlePath(0,0,m.stemDiameter/2,64)]),cross),skirtOuter=keycapRoundedSquare(size-5.2,Math.max(0,radius-2.6)),skirtInner=keycapRoundedSquare(size-8,Math.max(0,radius-4));
+  const underside=clip([...pathsOf(keycapDifference(skirtOuter,skirtInner)),...pathsOf(stem)]),plateZ=m.stemDepth,lidZ=plateZ+lidThickness;
+  const top=keycapLayers([{tree:underside,z0:0,z1:plateZ},{tree:topTree,z0:plateZ,z1:lidZ-depth},{tree:keycapDifference(topTree,pocket),z0:lidZ-depth,z1:lidZ}]),letters=extrude(text,0,letterThickness),body=frame.body;
   for(const mesh of [body,top,letters]){const report=manifoldReport(mesh);if(report.badEdges||report.degenerate)throw Error('모델 메시를 완성하지 못했습니다. 크기나 글꼴을 변경해 주세요.');}
-  return {body,top,letters,outline:keycapRoundedSquare(size,radius),topTree,text,pocket,lidThickness,depth,clearance,letterThickness,height:height+lidThickness-depth+letterThickness};
+  const previewGap=1.5;
+  return {...frame,top,letters,topTree,text,pocket,cross,skirtOuter,skirtInner,stem,lidThickness,depth,clearance,letterThickness,stemDepth:m.stemDepth,lidZ,lidBaseOffset:height+previewGap-plateZ,letterBaseOffset:height+previewGap+lidThickness-depth,height:height+previewGap+lidThickness-depth+letterThickness};
 }
 // Each print object starts on the bed; assembled offsets are for preview only.
 function keycapPrintObjects(model,settings,colors,letter,only='all') {

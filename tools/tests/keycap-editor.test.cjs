@@ -6,6 +6,7 @@ function editor(){
   function node(){return {children:[],style:{},attrs:{},events:{},value:'',disabled:false,checked:false,textContent:'',append(...items){this.children.push(...items);},replaceChildren(){this.children=[];},setAttribute(k,v){this.attrs[k]=v;},addEventListener(k,f){this.events[k]=f;},click(){if(this.download)filename=this.download;else this.onclick?.();},remove(){}};}
   const html=fs.readFileSync(path.join(root,'tools/Alphabet_Keycaps.html'),'utf8');
   for(const m of html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)){const el=ids[m[1]]=node();el.value=m[0].match(/\bvalue="([^"]*)"/)?.[1]||'';el.checked=/\bchecked\b/.test(m[0]);}
+  ids.previewMode.value='inside';
   const ctx2d=new Proxy({},{get:()=>()=>{}});ids.capPreview.width=1000;ids.capPreview.height=700;ids.capPreview.getContext=()=>ctx2d;
   const context={navigator:{userAgent:'node'},atob:s=>Buffer.from(s,'base64').toString('binary'),TextDecoder,TextEncoder,Uint8Array,ArrayBuffer,DataView,console,Blob,document:{getElementById:id=>ids[id],createElement:node,body:node()},requestAnimationFrame:f=>{frames.set(++frameId,f);return frameId;},cancelAnimationFrame:id=>frames.delete(id),setTimeout:()=>0,URL:{createObjectURL:blob=>{lastBlob=blob;return 'blob:test';},revokeObjectURL(){}},Keyring3D:class{constructor(){this.gl={};}setMeshes(parts){this.parts=parts;}clear(){}}};context.window=context;context.self=context;vm.createContext(context);
   for(const name of ['clipper','earcut','fflate','opentype','mesh-utils','name-keyring-core','bambu-project-defaults','bambu-3mf','keycap-core'])vm.runInContext(fs.readFileSync(path.join(root,'tools/assets/'+name+'.js'),'utf8'),context);
@@ -39,7 +40,7 @@ test('minimum body height and selectable rounded corners reach the saved geometr
   const e=editor();e.ids.capHeight.value='17.2';e.ids.capHeight.events.input();e.flush();assert.equal(e.ids.bodyDownload.disabled,true);assert.match(e.ids.capStatus.textContent,/최소 17.3mm/);
   e.ids.capHeight.value='17.3';e.ids.capHeight.events.input();e.flush();assert.equal(e.ids.bodyDownload.disabled,false);
   async function bodyVertices(){e.ids.bodyDownload.onclick();const files=e.context.fflate.unzipSync(new Uint8Array(await e.blob.arrayBuffer()));const xml=e.context.fflate.strFromU8(files['3D/Objects/object_1.model']);return [...xml.matchAll(/<vertex x="([^"]+)" y="([^"]+)" z="([^"]+)"/g)].map(m=>m.slice(1).map(Number));}
-  const rounded=await bodyVertices();assert.equal(Math.max(...rounded.map(v=>v[2])),17.3);assert(!rounded.some(v=>Math.abs(v[0])===9&&Math.abs(v[1])===9));
-  e.ids.roundCorners.checked=false;e.ids.roundCorners.events.input();e.flush();assert.equal(e.ids.cornerRadius.disabled,true);const square=await bodyVertices();assert(square.some(v=>Math.abs(v[0])===9&&Math.abs(v[1])===9));assert(square.length<rounded.length);
+  const rounded=await bodyVertices();assert.equal(Math.max(...rounded.map(v=>v[2])),17.3);assert(!rounded.some(v=>Math.abs(v[0])===11&&Math.abs(v[1])===11));
+  e.ids.roundCorners.checked=false;e.ids.roundCorners.events.input();e.flush();assert.equal(e.ids.cornerRadius.disabled,true);const square=await bodyVertices();assert(square.some(v=>Math.abs(v[0])===11&&Math.abs(v[1])===11));assert(square.length<rounded.length);
   e.ids.roundCorners.checked=true;e.ids.cornerRadius.value='5';e.ids.roundCorners.events.input();e.flush();assert.equal(e.ids.cornerRadius.disabled,false);const softer=await bodyVertices();assert.notDeepEqual(softer,rounded);
 });

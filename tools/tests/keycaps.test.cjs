@@ -13,11 +13,11 @@ test('the cord tunnel is open, removes the correct volume, and leaves a closed s
 test('all selectable letters and digits produce manifold body, top and lettering',()=>{
   for(const letter of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'){
     ctx.letter=letter;
-    assert.equal(vm.runInContext(`(()=>{const c=makeKeycap(capFont,letter,{size:18,height:18,hole:3.2});return [c.body,c.top,c.letters].every(m=>{const r=manifoldReport(m);return !r.badEdges&&!r.degenerate})})()`,ctx),true,letter);
+    assert.equal(vm.runInContext(`(()=>{const c=makeKeycap(capFont,letter,{size:22,height:18,hole:3.2});return [c.body,c.top,c.letters].every(m=>{const r=manifoldReport(m);return !r.badEdges&&!r.degenerate})})()`,ctx),true,letter);
   }
 });
 test('3MF keeps separate beads, deduplicates colours, and maps every part to the right slot',()=>{
-  const result=vm.runInContext(`(()=>{const c=makeKeycap(capFont,'A',{size:18,height:18,hole:3.2});return Bambu3MF.write({title:'A & B',objects:[{name:'A',position:[20,20,0],parts:[{name:'Body',mesh:c.body,color:'#f22974'},{name:'Top',mesh:c.top,color:'#ffdf31'},{name:'Letter',mesh:c.letters,color:'#f22974'}]},{name:'B',position:[42,20,0],parts:[{name:'Body',mesh:c.body,color:'#f22974'}]}]})})()`,ctx);
+  const result=vm.runInContext(`(()=>{const c=makeKeycap(capFont,'A',{size:22,height:18,hole:3.2});return Bambu3MF.write({title:'A & B',objects:[{name:'A',position:[20,20,0],parts:[{name:'Body',mesh:c.body,color:'#f22974'},{name:'Top',mesh:c.top,color:'#ffdf31'},{name:'Letter',mesh:c.letters,color:'#f22974'}]},{name:'B',position:[42,20,0],parts:[{name:'Body',mesh:c.body,color:'#f22974'}]}]})})()`,ctx);
   const files=ctx.fflate.unzipSync(result.bytes),read=name=>ctx.fflate.strFromU8(files[name]),project=JSON.parse(read('Metadata/project_settings.config'));
   assert.deepEqual(project.filament_colour,['#F22974','#FFDF31']);
   assert.equal(project.printer_model,'Bambu Lab P2S');
@@ -45,7 +45,7 @@ test('the new page and menu scripts parse and load all required local assets',()
 
 
 test('letter pocket is blind, has assembly clearance, and removes exactly its volume',()=>{
-  const result=vm.runInContext(`(()=>{const c=makeKeycap(capFont,'B',{size:18,height:18,recessDepth:.6,clearance:.15});const volume=m=>Math.abs(m.f.reduce((sum,f)=>{const[a,b,c]=f.map(i=>m.v[i]);return sum+(a[0]*(b[1]*c[2]-b[2]*c[1])+a[1]*(b[2]*c[0]-b[0]*c[2])+a[2]*(b[0]*c[1]-b[1]*c[0]))/6},0));const area=tree=>Math.abs(pathsOf(tree).reduce((n,p)=>n+ClipperLib.Clipper.Area(p),0))/UNIT**2;return {removed:volume(extrude(c.topTree,0,c.lidThickness))-volume(c.top),expected:area(c.pocket)*c.depth,larger:area(c.pocket)>area(c.text),minZ:Math.min(...c.top.v.map(v=>v[2])),floorZ:c.lidThickness-c.depth,hasFloor:c.top.v.some(v=>Math.abs(v[2]-(c.lidThickness-c.depth))<1e-6),objects:keycapPrintObjects(c,{size:18},['#123456','#abcdef','#fedcba'],'B').map(o=>({x:o.position[0],minZ:Math.min(...o.parts[0].mesh.v.map(v=>v[2]))}))}})()`,ctx);
+  const result=vm.runInContext(`(()=>{const c=makeKeycap(capFont,'B',{size:22,height:18,recessDepth:.6,clearance:.15});const volume=m=>Math.abs(m.f.reduce((sum,f)=>{const[a,b,c]=f.map(i=>m.v[i]);return sum+(a[0]*(b[1]*c[2]-b[2]*c[1])+a[1]*(b[2]*c[0]-b[0]*c[2])+a[2]*(b[0]*c[1]-b[1]*c[0]))/6},0));const area=tree=>Math.abs(pathsOf(tree).reduce((n,p)=>n+ClipperLib.Clipper.Area(p),0))/UNIT**2;return {removed:volume(extrude(c.topTree,c.stemDepth,c.lidZ))+volume(extrude(clip([...pathsOf(keycapDifference(c.skirtOuter,c.skirtInner)),...pathsOf(c.stem)]),0,c.stemDepth))-volume(c.top),expected:area(c.pocket)*c.depth,larger:area(c.pocket)>area(c.text),minZ:Math.min(...c.top.v.map(v=>v[2])),floorZ:c.lidZ-c.depth,hasFloor:c.top.v.some(v=>Math.abs(v[2]-(c.lidZ-c.depth))<1e-6),objects:keycapPrintObjects(c,{size:18},['#123456','#abcdef','#fedcba'],'B').map(o=>({x:o.position[0],minZ:Math.min(...o.parts[0].mesh.v.map(v=>v[2]))}))}})()`,ctx);
   assert(Math.abs(result.removed-result.expected)<.0001);assert(result.larger);assert.equal(result.minZ,0);assert(result.floorZ>1);assert(result.hasFloor);assert.equal(result.objects.length,3);for(let i=0;i<3;i++){assert.equal(result.objects[i].minZ,0);if(i)assert(result.objects[i].x-result.objects[i-1].x>=24);}
 });
 
@@ -53,6 +53,16 @@ test('all font and letter choices produce closed separate parts with a recessed 
   vm.runInContext(fs.readFileSync(path.join(root,'fonts/keyring-fonts.js'),'utf8'),ctx);for(let i=12;i<=17;i++)vm.runInContext(fs.readFileSync(path.join(root,'fonts/keyring-font-'+i+'.js'),'utf8'),ctx);
   for(let i=0;i<6;i++)for(const letter of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'){
     ctx.fontIndex=i;ctx.letter=letter;
-    assert.equal(vm.runInContext(`(()=>{const f=opentype.parse(Uint8Array.from(atob(BAMBU_FONTS[fontIndex].data),c=>c.charCodeAt(0)).buffer),m=makeKeycap(f,letter,{size:18,height:18});return [m.body,m.top,m.letters].every(p=>{const r=manifoldReport(p);return !r.badEdges&&!r.degenerate})})()`,ctx),true,i+':'+letter);
+    assert.equal(vm.runInContext(`(()=>{const f=opentype.parse(Uint8Array.from(atob(BAMBU_FONTS[fontIndex].data),c=>c.charCodeAt(0)).buffer),m=makeKeycap(f,letter,{size:22,height:18});return [m.body,m.top,m.letters].every(p=>{const r=manifoldReport(p);return !r.badEdges&&!r.degenerate})})()`,ctx),true,i+':'+letter);
   }
+});
+
+
+test('sample switch cavity, retaining ledge and blind cross socket are real voids',()=>{
+  const result=vm.runInContext(`(()=>{
+    const c=makeKeycap(capFont,'A',{size:22,height:18}),m=KEYCAP_SWITCH,lift=18-m.sampleHeight;
+    function solid(mesh,x,y,z){const hits=[];for(const face of mesh.f){const[a,b,c]=face.map(i=>mesh.v[i]),den=(b[1]-c[1])*(a[0]-c[0])+(c[0]-b[0])*(a[1]-c[1]);if(Math.abs(den)<1e-10)continue;const u=((b[1]-c[1])*(x-c[0])+(c[0]-b[0])*(y-c[1]))/den,v=((c[1]-a[1])*(x-c[0])+(a[0]-c[0])*(y-c[1]))/den;if(u<-1e-8||v<-1e-8||u+v>1+1e-8)continue;const h=u*a[2]+v*b[2]+(1-u-v)*c[2];if(h>z+1e-7&&!hits.some(n=>Math.abs(n-h)<1e-6))hits.push(h);}return hits.length%2===1;}
+    const larger=makeKeycap(capFont,'A',{size:32,height:25});
+    return {floor:solid(c.body,.1,.2,1),lowerVoid:!solid(c.body,.1,.2,m.floor+lift+.3),ledgeVoid:!solid(c.body,7.3,.2,m.floor+lift+.3),retainingLedge:solid(c.body,7.3,.2,m.shoulder+lift+.3),upperVoid:!solid(c.body,7.3,.2,m.cavityStart+lift+.3),wall:solid(c.body,10,.2,17),crossVoid:!solid(c.top,.1,.2,1),crossArmVoid:!solid(c.top,1.5,.2,1),socketWall:solid(c.top,.9,.9,1),blindSocketRoof:solid(c.top,.1,.2,m.stemDepth+.1),fixedMount:JSON.stringify(pathsOf(c.mount))===JSON.stringify(pathsOf(larger.mount)),fixedCross:JSON.stringify(pathsOf(c.cross))===JSON.stringify(pathsOf(larger.cross))};
+  })()`,ctx);for(const [key,value]of Object.entries(result))assert.equal(value,true,key);
 });

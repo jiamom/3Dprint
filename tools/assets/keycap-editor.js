@@ -2,7 +2,7 @@
   const $=id=>document.getElementById(id),fonts=window.BAMBU_FONTS,canvas=$('capPreview'),ctx=canvas.getContext('2d'),viewer=new Keyring3D(canvas);
   let caps=[],font=null,models=[],pending=null;const cache=new Map(),fontCache=new Map();
   const colors=['#F22974','#FFDF31','#F22974'];
-  function settings(){return {size:Number($('capSize').value),height:Number($('capHeight').value),hole:0,roundCorners:$('roundCorners').checked,cornerRadius:Number($('cornerRadius').value),recessDepth:Number($('recessDepth').value),clearance:Number($('fitClearance').value)};}
+  function settings(){return {size:Number($('capSize').value),height:Number($('capHeight').value),hole:0,switchFit:Number($('switchFit').value),roundCorners:$('roundCorners').checked,cornerRadius:Number($('cornerRadius').value),recessDepth:Number($('recessDepth').value),clearance:Number($('fitClearance').value)};}
   function syncName(){
     const raw=$('capName').value,value=raw.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,1);$('capName').value=value;
     caps=value?[{letter:value,colors}]:[];renderChoices();schedule();
@@ -13,25 +13,25 @@
   }
   function schedule(){if(pending!==null)cancelAnimationFrame(pending);pending=requestAnimationFrame(update);}
   function displayParts(m){
-    const s=settings(),split=$('previewMode').value==='separate',meshes=[m.body,m.top,m.letters],offsets=split?[[0,0,0],[s.size+6,0,0],[2*(s.size+6),0,0]]:[[0,0,0],[0,0,s.height],[0,0,s.height+m.lidThickness-m.depth]];
-    return meshes.map((mesh,j)=>({mesh:{v:mesh.v.map(v=>v.map((n,k)=>n+offsets[j][k])),f:mesh.f},color:colors[j]}));
+    const s=settings(),split=$('previewMode').value!=='assembled',meshes=[m.body,m.top,m.letters],offsets=split?[[0,0,0],[s.size+6,0,0],[2*(s.size+6),0,0]]:[[0,0,0],[0,0,m.lidBaseOffset],[0,0,m.letterBaseOffset]];
+    return meshes.map((mesh,j)=>({mesh:{v:mesh.v.map(v=>{const p=$('previewMode').value==='inside'&&j===1?[v[0],-v[1],m.lidZ-v[2]]:v;return p.map((n,k)=>n+offsets[j][k]);}),f:mesh.f},color:colors[j]}));
   }
   function flatPaint(){
     ctx.clearRect(0,0,canvas.width,canvas.height);if(!models.length)return;
-    const m=models[0],split=$('previewMode').value==='separate',s=settings(),scale=Math.min(850/((split?3:1)*(s.size+6)),500/(s.size+6));
+    const m=models[0],split=$('previewMode').value!=='assembled',s=settings(),scale=Math.min(850/((split?3:1)*(s.size+6)),500/(s.size+6));
     ctx.save();ctx.translate(500,350);ctx.scale(scale,-scale);if(split)ctx.translate(-(s.size+6),0);
     const fill=(tree,color,x=0)=>{ctx.save();ctx.translate(x,0);ctx.beginPath();for(const ring of pathsOf(tree)){ring.forEach((p,i)=>i?ctx.lineTo(p.X/UNIT,p.Y/UNIT):ctx.moveTo(p.X/UNIT,p.Y/UNIT));ctx.closePath();}ctx.fillStyle=color;ctx.fill('evenodd');ctx.restore();};
-    fill(m.outline,colors[0]);fill(m.topTree,colors[1],split?s.size+6:0);fill(m.pocket,'#59644d',split?s.size+6:0);fill(m.text,colors[2],split?2*(s.size+6):0);ctx.restore();
+    fill(m.outline,colors[0]);if(split){fill(m.cavity,'#59644d');fill(m.mount,'#7e8e73');fill(m.throat,'#94a188');}fill(m.topTree,colors[1],split?s.size+6:0);if($('previewMode').value==='inside'){fill(m.skirtOuter,'#59644d',s.size+6);fill(m.skirtInner,colors[1],s.size+6);fill(m.stem,colors[1],s.size+6);fill(m.cross,'#59644d',s.size+6);}else fill(m.pocket,'#59644d',split?s.size+6:0);fill(m.text,colors[2],split?2*(s.size+6):0);ctx.restore();
   }
   function enableDownloads(enabled){for(const id of ['capDownload','bodyDownload','lidDownload','letterDownload'])$(id).disabled=!enabled;}
   function update(){
-    pending=null;const s=settings();$('cornerRadius').disabled=!s.roundCorners;$('radiusOut').value=s.roundCorners?s.cornerRadius.toFixed(1)+' mm':'각진 모서리';$('sizeOut').value=s.size+' mm';$('heightOut').value=s.height+' mm';$('recessOut').value=s.recessDepth.toFixed(1)+' mm';$('clearanceOut').value=s.clearance.toFixed(2)+' mm / 면';
-    $('capCount').textContent=caps.length+' CAP';$('capDimensions').textContent=s.size+' × '+s.size+' × '+(s.height+3.8-s.recessDepth).toFixed(1)+' mm / 개';
+    pending=null;const s=settings();$('cornerRadius').disabled=!s.roundCorners;$('radiusOut').value=s.roundCorners?s.cornerRadius.toFixed(1)+' mm':'각진 모서리';$('switchFitOut').value=s.switchFit.toFixed(2)+' mm / 면';$('sizeOut').value=s.size+' mm';$('heightOut').value=s.height+' mm';$('recessOut').value=s.recessDepth.toFixed(1)+' mm';$('clearanceOut').value=s.clearance.toFixed(2)+' mm / 면';
+    $('capCount').textContent=caps.length+' CAP';$('capDimensions').textContent=s.size+' × '+s.size+' × '+(s.height+5.3-s.recessDepth).toFixed(1)+' mm / 개';
     enableDownloads(false);
     try {
       if(!font)return;if(!caps.length)throw Error('알파벳이나 숫자 한 글자를 선택해 주세요.');
-      models=caps.map(cap=>{const key=[$('capFont').value,cap.letter,s.size,s.height,s.recessDepth,s.clearance,s.roundCorners,s.cornerRadius].join(':');if(!cache.has(key)){if(cache.size>180)cache.clear();cache.set(key,makeKeycap(font,cap.letter,s));}return cache.get(key);});
-      if(viewer.gl)viewer.setMeshes(displayParts(models[0]));flatPaint();$('capStatus').textContent='뚜껑 홈에 글씨를 맞춰 접착하세요. 각 부품은 별도 파일로 저장할 수 있습니다.';enableDownloads(true);
+      models=caps.map(cap=>{const key=[$('capFont').value,cap.letter,s.size,s.height,s.recessDepth,s.clearance,s.roundCorners,s.cornerRadius,s.switchFit].join(':');if(!cache.has(key)){if(cache.size>180)cache.clear();cache.set(key,makeKeycap(font,cap.letter,s));}return cache.get(key);});
+      if(viewer.gl)viewer.setMeshes(displayParts(models[0]));flatPaint();$('capStatus').textContent='내부 홈 보기에서 스위치 장착 공간과 십자 홈을 확인하세요. 실물 스위치에 맞춰 시험 조립 후 여유를 조절하세요.';enableDownloads(true);
     } catch(error){models=[];viewer.clear();ctx.clearRect(0,0,canvas.width,canvas.height);$('capStatus').textContent=error.message;}
   }
   function chooseFont(){try{const i=Number($('capFont').value);if(!fontCache.has(i))fontCache.set(i,opentype.parse(Uint8Array.from(atob(fonts[i].data),c=>c.charCodeAt(0)).buffer));font=fontCache.get(i);update();}catch(error){font=null;models=[];viewer.clear();enableDownloads(false);$('capStatus').textContent='글꼴을 읽지 못했습니다: '+error.message;}}
@@ -41,7 +41,7 @@
   $('capName').addEventListener('input',syncName);$('capFont').addEventListener('change',chooseFont);
   $('resetName').onclick=()=>{$('capName').value='';syncName();};
   ['bodyColor','topColor','letterColor'].forEach((id,i)=>$(id).addEventListener('input',()=>{colors[i]=$(id).value;renderChoices();schedule();}));
-  for(const id of ['capSize','capHeight','recessDepth','fitClearance','previewMode','roundCorners','cornerRadius'])$(id).addEventListener('input',schedule);
+  for(const id of ['capSize','capHeight','recessDepth','fitClearance','previewMode','roundCorners','cornerRadius','switchFit'])$(id).addEventListener('input',schedule);
   function download(only){
     if(pending!==null){cancelAnimationFrame(pending);pending=null;}update();if($('capDownload').disabled)return;
     try {

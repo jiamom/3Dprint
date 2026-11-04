@@ -44,3 +44,12 @@ test('minimum body height and selectable rounded corners reach the saved geometr
   e.ids.roundCorners.checked=false;e.ids.roundCorners.events.input();e.flush();assert.equal(e.ids.cornerRadius.disabled,true);const square=await bodyVertices();assert(square.some(v=>Math.abs(v[0])===11&&Math.abs(v[1])===11));assert(square.length<rounded.length);
   e.ids.roundCorners.checked=true;e.ids.cornerRadius.value='5';e.ids.roundCorners.events.input();e.flush();assert.equal(e.ids.cornerRadius.disabled,false);const softer=await bodyVertices();assert.notDeepEqual(softer,rounded);
 });
+
+
+test('ring controls update the saved body and can be disabled again',async()=>{
+  const e=editor();assert.equal(e.ids.ringHole.disabled,true);
+  async function maxY(){e.ids.bodyDownload.onclick();const f=e.context.fflate.unzipSync(new Uint8Array(await e.blob.arrayBuffer()));return Math.max(...[...e.context.fflate.strFromU8(f['3D/Objects/object_1.model']).matchAll(/<vertex x="[^"]+" y="([^"]+)"/g)].map(m=>Number(m[1])));}
+  assert.equal(await maxY(),11);e.ids.withRing.checked=true;e.ids.withRing.events.input();e.flush();assert.equal(e.ids.ringHole.disabled,false);assert(await maxY()>11);
+  e.ids.ringAngle.value='180';e.ids.ringHole.value='10';e.ids.ringHole.events.input();e.flush();assert.match(e.ids.ringAngleOut.value,/아래쪽/);assert.equal(e.ids.capDownload.disabled,false);assert.equal(await maxY(),11);
+  e.ids.withRing.checked=false;e.ids.withRing.events.input();e.flush();assert.equal(e.ids.ringHole.disabled,true);assert.equal(await maxY(),11);
+});

@@ -57,18 +57,39 @@ function keycapRectangle(width,depth,radius=0){
 function keycapDifference(a,b){return clip(pathsOf(a),pathsOf(b),ClipperLib.ClipType.ctDifference);}
 // Build a closed solid from horizontal sections, including blind cavities and ledges.
 function keycapLayers(layers){
+  const clean=tree=>clip(ClipperLib.Clipper.CleanPolygons(pathsOf(tree),.0001*UNIT));
+  layers=layers.map(layer=>({...layer,tree:clean(layer.tree)}));
   const mesh=makeMesh();surface(mesh,layers[0].tree,layers[0].z0,false);
   layers.forEach((layer,i)=>{
     walls(mesh,layer.tree,layer.z0,layer.z1);
-    if(i+1<layers.length){const next=layers[i+1];surface(mesh,keycapDifference(layer.tree,next.tree),layer.z1,true);surface(mesh,keycapDifference(next.tree,layer.tree),layer.z1,false);}
+    if(i+1<layers.length){const next=layers[i+1];surface(mesh,clean(keycapDifference(layer.tree,next.tree)),layer.z1,true);surface(mesh,clean(keycapDifference(next.tree,layer.tree)),layer.z1,false);}
     else surface(mesh,layer.tree,layer.z1,true);
-  });return repair(mesh);
+  });return repair(mesh,2/UNIT); // Reconcile integer-rounded polygon intersections across layers.
 }
-function keycapSwitchBody(size,height,radius,fit=0){
+// Intersect a ray with the offset perimeter so the ring hole stays outside the case.
+function keycapPerimeterPoint(tree,angle){
+  const t=angle*Math.PI/180,dx=Math.sin(t),dy=Math.cos(t);let best=Infinity;
+  for(const ring of pathsOf(tree))for(let i=0;i<ring.length;i++){
+    const a=ring[i],b=ring[(i+1)%ring.length],ax=a.X/UNIT,ay=a.Y/UNIT,ex=(b.X-a.X)/UNIT,ey=(b.Y-a.Y)/UNIT,den=dx*ey-dy*ex;
+    if(Math.abs(den)<1e-10)continue;const ray=(ax*ey-ay*ex)/den,along=(ax*dy-ay*dx)/den;
+    if(ray>0&&along>=-1e-8&&along<=1+1e-8)best=Math.min(best,ray);
+  }
+  if(!Number.isFinite(best))throw Error('고리 위치를 계산하지 못했습니다.');return {x:dx*best,y:dy*best};
+}
+function keycapRing(outline,settings={}){
+  if(!settings.withRing)return null;
+  const angle=settings.ringAngle??0,hole=settings.ringHole??4,wall=settings.ringWall??2,thickness=settings.ringThickness??3;
+  if(![angle,hole,wall,thickness].every(Number.isFinite)||angle<0||angle>360||hole<2||hole>10||wall<1.5||wall>4||thickness<2||thickness>6)throw Error('고리의 위치와 크기를 확인해 주세요.');
+  const center=keycapPerimeterPoint(keycapOffset(outline,hole/2+.8),angle),outer=clip([circlePath(center.x,center.y,hole/2+wall,80)]),cutout=clip([circlePath(center.x,center.y,hole/2,80)]);
+  return {center,hole,wall,thickness,tree:keycapDifference(outer,cutout),cutout,outer};
+}
+function keycapSwitchBody(size,height,radius,fit=0,settings={}){
   if(size<22)throw Error('스위치 장착 공간을 위해 한 변을 최소 22mm 이상으로 설정해 주세요.');
   const m=KEYCAP_SWITCH,lift=height-m.sampleHeight,outline=keycapRoundedSquare(size,radius),mount=keycapRectangle(m.mountWidth+2*fit,m.mountDepth+2*fit,1.5),throat=keycapRectangle(m.throatWidth+2*fit,m.throatDepth+2*fit),cavity=keycapRoundedSquare(size-4.8,Math.max(0,radius-2.4));
-  const body=keycapLayers([{tree:outline,z0:0,z1:m.floor+lift},{tree:keycapDifference(outline,mount),z0:m.floor+lift,z1:m.shoulder+lift},{tree:keycapDifference(outline,throat),z0:m.shoulder+lift,z1:m.cavityStart+lift},{tree:keycapDifference(outline,cavity),z0:m.cavityStart+lift,z1:height}]);
-  return {body,outline,cavity,mount,throat};
+  let layers=[{tree:outline,z0:0,z1:m.floor+lift},{tree:keycapDifference(outline,mount),z0:m.floor+lift,z1:m.shoulder+lift},{tree:keycapDifference(outline,throat),z0:m.shoulder+lift,z1:m.cavityStart+lift},{tree:keycapDifference(outline,cavity),z0:m.cavityStart+lift,z1:height}];
+  const ring=keycapRing(outline,settings);
+  if(ring){layers=layers.flatMap(layer=>{const sections=[],end=Math.min(layer.z1,ring.thickness);if(layer.z0<end)sections.push({tree:clip([...pathsOf(layer.tree),...pathsOf(ring.tree)]),z0:layer.z0,z1:end});if(layer.z1>Math.max(layer.z0,ring.thickness))sections.push({...layer,z0:Math.max(layer.z0,ring.thickness)});return sections;});}
+  return {body:keycapLayers(layers),outline:ring?clip([...pathsOf(outline),...pathsOf(ring.tree)]):outline,cavity,mount,throat,ring};
 }
 function makeKeycap(font,letter,settings) {
   const {size,height}=settings,topSize=size-3,lidThickness=2.4,depth=settings.recessDepth??.6,clearance=settings.clearance??.15,letterThickness=1.4,fit=settings.switchFit??0;
@@ -81,7 +102,7 @@ function makeKeycap(font,letter,settings) {
   if(ratio<1)text=clip(pathsOf(text).map(p=>p.map(q=>({X:Math.round(q.X*ratio),Y:Math.round(q.Y*ratio)}))));
   const pocket=keycapOffset(text,clearance),topTree=keycapRoundedSquare(topSize,topRadius);
   if(pathsOf(keycapDifference(pocket,topTree)).length)throw Error('글자 홈이 뚜껑 밖으로 나갑니다. 글꼴이나 크기를 바꿔 주세요.');
-  const frame=keycapSwitchBody(size,height,radius,fit),m=KEYCAP_SWITCH;
+  const frame=keycapSwitchBody(size,height,radius,fit,settings),m=KEYCAP_SWITCH;
   const cross=clip([...pathsOf(keycapRectangle(m.crossSpan+2*fit,m.crossArm+2*fit)),...pathsOf(keycapRectangle(m.crossArm+2*fit,m.crossSpan+2*fit))]);
   const stem=keycapDifference(clip([circlePath(0,0,m.stemDiameter/2,64)]),cross),skirtOuter=keycapRoundedSquare(size-5.2,Math.max(0,radius-2.6)),skirtInner=keycapRoundedSquare(size-8,Math.max(0,radius-4));
   const underside=clip([...pathsOf(keycapDifference(skirtOuter,skirtInner)),...pathsOf(stem)]),plateZ=m.stemDepth,lidZ=plateZ+lidThickness;
@@ -90,9 +111,10 @@ function makeKeycap(font,letter,settings) {
   const previewGap=1.5;
   return {...frame,top,letters,topTree,text,pocket,cross,skirtOuter,skirtInner,stem,lidThickness,depth,clearance,letterThickness,stemDepth:m.stemDepth,lidZ,lidBaseOffset:height+previewGap-plateZ,letterBaseOffset:height+previewGap+lidThickness-depth,height:height+previewGap+lidThickness-depth+letterThickness};
 }
-// Each print object starts on the bed; assembled offsets are for preview only.
+function keycapMeshBounds(mesh){return boundsOf([mesh.v.map(v=>({X:v[0]*UNIT,Y:v[1]*UNIT}))]);}
+function keycapPreviewPositions(model){const a=keycapMeshBounds(model.body),b=keycapMeshBounds(model.top),c=keycapMeshBounds(model.letters),second=a.x1+6-b.x0;return [0,second,second+b.x1+6-c.x0];}
+// Position using actual mesh bounds, including the optional ring, without overlaps.
 function keycapPrintObjects(model,settings,colors,letter,only='all') {
-  const meshes=[model.body,model.top,model.letters],names=['Body','Lid','Letter'],objects=[];
-  meshes.forEach((mesh,i)=>{if(only!=='all'&&Number(only)!==i)return;objects.push({name:names[i]+'_'+letter,position:[10+settings.size/2+(only==='all'?i*(settings.size+6):0),10+settings.size/2,0],parts:[{name:names[i],mesh,color:colors[i]}]});});
-  return objects;
+  const meshes=[model.body,model.top,model.letters],names=['Body','Lid','Letter'],objects=[];let cursor=10;
+  meshes.forEach((mesh,i)=>{if(only!=='all'&&Number(only)!==i)return;const b=keycapMeshBounds(mesh);objects.push({name:names[i]+'_'+letter,position:[cursor-b.x0,10-b.y0,0],parts:[{name:names[i],mesh,color:colors[i]}]});cursor+=b.width+6;});return objects;
 }

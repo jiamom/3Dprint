@@ -46,7 +46,7 @@ test('the new page and menu scripts parse and load all required local assets',()
 
 test('letter pocket is blind, has assembly clearance, and removes exactly its volume',()=>{
   const result=vm.runInContext(`(()=>{const c=makeKeycap(capFont,'B',{size:22,height:18,recessDepth:.6,clearance:.15});const volume=m=>Math.abs(m.f.reduce((sum,f)=>{const[a,b,c]=f.map(i=>m.v[i]);return sum+(a[0]*(b[1]*c[2]-b[2]*c[1])+a[1]*(b[2]*c[0]-b[0]*c[2])+a[2]*(b[0]*c[1]-b[1]*c[0]))/6},0));const area=tree=>Math.abs(pathsOf(tree).reduce((n,p)=>n+ClipperLib.Clipper.Area(p),0))/UNIT**2;return {removed:volume(extrude(c.topTree,c.stemDepth,c.lidZ))+volume(extrude(clip([...pathsOf(keycapDifference(c.skirtOuter,c.skirtInner)),...pathsOf(c.stem)]),0,c.stemDepth))-volume(c.top),expected:area(c.pocket)*c.depth,larger:area(c.pocket)>area(c.text),minZ:Math.min(...c.top.v.map(v=>v[2])),floorZ:c.lidZ-c.depth,hasFloor:c.top.v.some(v=>Math.abs(v[2]-(c.lidZ-c.depth))<1e-6),objects:keycapPrintObjects(c,{size:18},['#123456','#abcdef','#fedcba'],'B').map(o=>({x:o.position[0],minZ:Math.min(...o.parts[0].mesh.v.map(v=>v[2]))}))}})()`,ctx);
-  assert(Math.abs(result.removed-result.expected)<.0001);assert(result.larger);assert.equal(result.minZ,0);assert(result.floorZ>1);assert(result.hasFloor);assert.equal(result.objects.length,3);for(let i=0;i<3;i++){assert.equal(result.objects[i].minZ,0);if(i)assert(result.objects[i].x-result.objects[i-1].x>=24);}
+  assert(Math.abs(result.removed-result.expected)<.0001);assert(result.larger);assert.equal(result.minZ,0);assert(result.floorZ>1);assert(result.hasFloor);assert.equal(result.objects.length,3);for(let i=0;i<3;i++){assert.equal(result.objects[i].minZ,0);}
 });
 
 test('all font and letter choices produce closed separate parts with a recessed lid',()=>{
@@ -65,4 +65,22 @@ test('sample switch cavity, retaining ledge and blind cross socket are real void
     const larger=makeKeycap(capFont,'A',{size:32,height:25});
     return {floor:solid(c.body,.1,.2,1),lowerVoid:!solid(c.body,.1,.2,m.floor+lift+.3),ledgeVoid:!solid(c.body,7.3,.2,m.floor+lift+.3),retainingLedge:solid(c.body,7.3,.2,m.shoulder+lift+.3),upperVoid:!solid(c.body,7.3,.2,m.cavityStart+lift+.3),wall:solid(c.body,10,.2,17),crossVoid:!solid(c.top,.1,.2,1),crossArmVoid:!solid(c.top,1.5,.2,1),socketWall:solid(c.top,.9,.9,1),blindSocketRoof:solid(c.top,.1,.2,m.stemDepth+.1),fixedMount:JSON.stringify(pathsOf(c.mount))===JSON.stringify(pathsOf(larger.mount)),fixedCross:JSON.stringify(pathsOf(c.cross))===JSON.stringify(pathsOf(larger.cross))};
   })()`,ctx);for(const [key,value]of Object.entries(result))assert.equal(value,true,key);
+});
+
+
+test('rings stay attached and watertight around every side without cutting the switch cavity',()=>{
+  const result=vm.runInContext(`(()=>{
+    let checked=0;for(const radius of [0,5])for(const angle of [0,35,45,90,135,180,225,270,315])for(const large of [false,true]){
+      const settings={withRing:true,ringAngle:angle,ringHole:large?10:2,ringWall:large?4:1.5,ringThickness:large?6:2};
+      const frame=keycapSwitchBody(22,17.3,radius,0,settings),report=manifoldReport(frame.body),outline=keycapRoundedSquare(22,radius);
+      if(report.badEdges||report.degenerate)throw Error('unclosed ring '+radius+':'+angle+':'+large);
+      if(pathsOf(clip(pathsOf(frame.ring.cutout),pathsOf(outline),ClipperLib.ClipType.ctIntersection)).length)throw Error('ring hole enters case');
+      const neighbors=new Map();for(const face of frame.body.f)for(const a of face){if(!neighbors.has(a))neighbors.set(a,new Set());for(const b of face)neighbors.get(a).add(b);}const visited=new Set(),queue=[neighbors.keys().next().value];while(queue.length){const a=queue.pop();if(visited.has(a))continue;visited.add(a);for(const b of neighbors.get(a))if(!visited.has(b))queue.push(b);}if(visited.size!==neighbors.size)throw Error('detached ring');
+      checked++;
+    }return checked;
+  })()`,ctx);assert.equal(result,36);
+});
+
+test('large right-hand ring exports without overlapping the lid and letter',()=>{
+  const result=vm.runInContext(`(()=>{const s={size:22,height:18,withRing:true,ringAngle:90,ringHole:10,ringWall:4,ringThickness:6},m=makeKeycap(capFont,'A',s);return keycapPrintObjects(m,s,['#F22974','#FFDF31','#F22974'],'A').map(o=>{const b=keycapMeshBounds(o.parts[0].mesh);return {minX:b.x0+o.position[0],maxX:b.x1+o.position[0],minY:b.y0+o.position[1]}})})()`,ctx);for(let i=0;i<3;i++){assert(result[i].minX>=10-1e-6);assert(result[i].minY>=10-1e-6);if(i)assert(result[i].minX-result[i-1].maxX>=6-1e-6);}
 });

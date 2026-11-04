@@ -15,18 +15,20 @@ function editor(){
   const flush=()=>{for(const [id,f]of [...frames]){frames.delete(id);f();}};flush();
   return {ids,context,flush,get blob(){return lastBlob;},get filename(){return filename;}};
 }
-test('alphabet clicks append beads, per-letter edits survive selection, and export uses those colours',async()=>{
-  const e=editor();assert.equal(e.ids.capCount.textContent,'6 CAPS');assert.equal(e.ids.capDownload.disabled,false);
-  e.ids.alphabet.children.find(b=>b.textContent==='Z').onclick();e.flush();assert.equal(e.ids.capName.value,'ANDREAZ');assert.equal(e.ids.capCount.textContent,'7 CAPS');
-  e.ids.letterColor.value='#123456';e.ids.letterColor.events.input();e.flush();
-  e.ids.selectedCaps.children[0].onclick();e.ids.selectedCaps.children[6].onclick();assert.equal(e.ids.letterColor.value,'#123456');
-  e.ids.capDownload.onclick();assert.equal(e.filename,'Keycaps_ANDREAZ.3mf');
-  const files=e.context.fflate.unzipSync(new Uint8Array(await e.blob.arrayBuffer())),project=JSON.parse(e.context.fflate.strFromU8(files['Metadata/project_settings.config']));assert(project.filament_colour.includes('#123456'));
-  const model=e.context.fflate.strFromU8(files['3D/3dmodel.model']);assert.equal((model.match(/<item /g)||[]).length,7);
+test('one keycap replaces its letter and exports three independently chosen colours',async()=>{
+  const e=editor();assert.equal(e.ids.capName.value,'A');assert.equal(e.ids.capCount.textContent,'1 CAP');assert.equal(e.ids.capDownload.disabled,false);
+  e.ids.alphabet.children.find(b=>b.textContent==='Z').onclick();e.flush();assert.equal(e.ids.capName.value,'Z');assert.equal(e.ids.capCount.textContent,'1 CAP');
+  for(const [id,color] of [['bodyColor','#123456'],['topColor','#ABCDEF'],['letterColor','#FEDCBA']]){e.ids[id].value=color;e.ids[id].events.input();e.flush();}
+  e.ids.alphabet.children.find(b=>b.textContent==='B').onclick();e.flush();assert.equal(e.ids.capName.value,'B');assert.equal(e.ids.bodyColor.value,'#123456');assert.equal(e.ids.topColor.value,'#ABCDEF');assert.equal(e.ids.letterColor.value,'#FEDCBA');
+  e.ids.capDownload.onclick();assert.equal(e.filename,'Keycap_B.3mf');
+  const files=e.context.fflate.unzipSync(new Uint8Array(await e.blob.arrayBuffer())),project=JSON.parse(e.context.fflate.strFromU8(files['Metadata/project_settings.config']));assert.deepEqual(Array.from(project.filament_colour),['#123456','#ABCDEF','#FEDCBA']);
+  const model=e.context.fflate.strFromU8(files['3D/3dmodel.model']);assert.equal((model.match(/<item /g)||[]).length,1);
+  const settings=e.context.fflate.strFromU8(files['Metadata/model_settings.config']);for(let i=1;i<=3;i++)assert(settings.includes('key="extruder" value="'+i+'"'));
 });
+
 test('empty names and unsafe hole dimensions block export; valid input recovers',()=>{
-  const e=editor();e.ids.resetName.onclick();e.flush();assert.equal(e.ids.capDownload.disabled,true);assert.match(e.ids.capStatus.textContent,/하나 이상/);
-  e.ids.capName.value='ab1한글';e.ids.capName.events.input();e.flush();assert.equal(e.ids.capName.value,'AB1');assert.equal(e.ids.capDownload.disabled,false);
+  const e=editor();e.ids.resetName.onclick();e.flush();assert.equal(e.ids.capDownload.disabled,true);assert.match(e.ids.capStatus.textContent,/한 글자/);
+  e.ids.capName.value='ab1한글';e.ids.capName.events.input();e.flush();assert.equal(e.ids.capName.value,'A');assert.equal(e.ids.capDownload.disabled,false);
   e.ids.capHeight.value='5';e.ids.capHole.value='5';e.ids.capHole.events.input();e.flush();assert.equal(e.ids.capDownload.disabled,true);assert.match(e.ids.capStatus.textContent,/최소 1mm/);
   e.ids.withHole.checked=false;e.ids.withHole.events.input();e.flush();assert.equal(e.ids.capDownload.disabled,false);
 });

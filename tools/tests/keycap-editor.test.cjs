@@ -66,10 +66,10 @@ test('each downloaded part is recorded with the exact file and independent colou
   assert.equal(e.context.savedRecords.length,4);
 });
 
-test('mail generation honours selected part and invalid input; record failures preserve the download',async()=>{
+test('mail generation always includes all parts and rejects invalid input; record failures preserve the download',async()=>{
   const e=editor(),binding=e.context.mailBindings[0];assert.equal(binding.button,e.ids.capSendMail);assert.equal(binding.saveButton,e.ids.capDownload);
-  e.ids.capMailPart.value='1';const data=binding.generate();assert.equal(data.filename,'Keycap_A_Lid.3mf');
-  const files=e.context.fflate.unzipSync(new Uint8Array(await data.file.arrayBuffer()));assert.equal((e.context.fflate.strFromU8(files['3D/3dmodel.model']).match(/<item /g)||[]).length,1);
+  assert.equal(e.ids.capMailPart,undefined);const data=binding.generate();assert.equal(data.filename,'Keycap_A_Parts.3mf');
+  const files=e.context.fflate.unzipSync(new Uint8Array(await data.file.arrayBuffer()));assert.equal((e.context.fflate.strFromU8(files['3D/3dmodel.model']).match(/<item /g)||[]).length,3);
   assert.equal(e.context.savedRecords.length,0);
   e.context.KeyringRecords.save=async()=>{throw Error('storage unavailable');};await e.ids.bodyDownload.onclick();
   assert.equal(e.filename,'Keycap_A_Body.3mf');assert.match(e.ids.capStatus.textContent,/추가하지 못했습니다/);assert.equal(e.ids.bodyDownload.disabled,false);

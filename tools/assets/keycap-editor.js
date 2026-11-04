@@ -58,7 +58,7 @@
     catch(error){$('capStatus').textContent='3MF 다운로드는 시작했지만 저장 목록에 추가하지 못했습니다: '+error.message;}
     finally{saving=false;enableDownloads(models.length>0);}
   }
-  KeyringMail.attach($('capSendMail'),()=>makeFile($('capMailPart').value),$('capStatus'),$('capDownload'));
+  KeyringMail.attach($('capSendMail'),()=>makeFile('all'),$('capStatus'),$('capDownload'));
   $('capDownload').onclick=()=>download('all');
   ['bodyDownload','lidDownload','letterDownload'].forEach((id,i)=>$(id).onclick=()=>download(String(i)));
   syncName();chooseFont();

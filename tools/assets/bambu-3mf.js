@@ -6,11 +6,12 @@ window.Bambu3MF = (() => {
     if(!objects.length) throw Error('저장할 모델이 없습니다.');
     const colors=[],resources=[],models=[],build=[],instances=[],objectFiles={};
     const meshXML = m => '<mesh><vertices>'+m.v.map(v=>'<vertex x="'+v[0].toFixed(6)+'" y="'+v[1].toFixed(6)+'" z="'+v[2].toFixed(6)+'"/>').join('')+'</vertices><triangles>'+m.f.map(f=>'<triangle v1="'+f[0]+'" v2="'+f[1]+'" v3="'+f[2]+'"/>').join('')+'</triangles></mesh>';
+    let nextPartId=objects.length+1; // Bambu resolves mesh IDs across external model files.
     objects.forEach((object,index)=>{
-      let partId=1;const shapes=[];const geometryPath="3D/Objects/object_"+(index+1)+".model";
+      const shapes=[];const geometryPath="3D/Objects/object_"+(index+1)+".model";
       const parts=object.parts.map(part=>{
         const hex=color(part.color);let slot=colors.indexOf(hex);if(slot<0){slot=colors.length;colors.push(hex);}
-        const id=partId++;shapes.push('<object id="'+id+'" type="model" name="'+escape(part.name)+'" pid="1000" pindex="'+slot+'">'+meshXML(part.mesh)+'</object>');
+        const id=nextPartId++;shapes.push('<object id="'+id+'" type="model" name="'+escape(part.name)+'" pid="1000" pindex="'+slot+'">'+meshXML(part.mesh)+'</object>');
         return {id,slot,name:part.name,faces:part.mesh.f.length};
       });
       objectFiles[geometryPath]=shapes;

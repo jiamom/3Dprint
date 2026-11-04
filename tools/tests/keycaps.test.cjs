@@ -27,8 +27,9 @@ test('3MF keeps separate beads, deduplicates colours, and maps every part to the
   const model=read('3D/3dmodel.model'),settings=read('Metadata/model_settings.config');
   assert(model.includes('A &amp; B'));assert.equal((model.match(/<item /g)||[]).length,2);
   assert(files['3D/Objects/object_1.model']);assert(files['3D/Objects/object_2.model']);
-  assert.match(settings,/<part id="2"[\s\S]*?key="extruder" value="2"/);
-  assert.match(settings,/<part id="3"[\s\S]*?key="extruder" value="1"/);
+  const ids=Object.entries(files).filter(([name])=>name.endsWith('.model')).flatMap(([,data])=>[...ctx.fflate.strFromU8(data).matchAll(/<object id="(\d+)"/g)].map(m=>m[1]));assert.equal(new Set(ids).size,ids.length,'Bambu mesh IDs must be unique across model files');
+  assert.match(settings,/<part id="4"[\s\S]*?key="extruder" value="2"/);
+  assert.match(settings,/<part id="5"[\s\S]*?key="extruder" value="1"/);
 });
 test('existing text-keyring exports now contain Bambu colour assignments',()=>{
   const bytes=vm.runInContext(`(()=>{const s={name:'AB',height:18,border:2,angle:90,hole:4,align:'center',spacing:0,lineGap:6,baseColor:'#1234AB',textColor:'#EF5612'};return make3mf(keyringGeometry(capFont,s),s).bytes})()`,ctx);

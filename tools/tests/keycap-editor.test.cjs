@@ -33,3 +33,13 @@ test('empty letters and invalid recess depth block export; valid input recovers'
   e.ids.recessDepth.value='3';e.ids.recessDepth.events.input();e.flush();assert.equal(e.ids.capDownload.disabled,true);assert.match(e.ids.capStatus.textContent,/홈 깊이/);
   e.ids.recessDepth.value='.6';e.ids.recessDepth.events.input();e.flush();assert.equal(e.ids.capDownload.disabled,false);
 });
+
+
+test('minimum body height and selectable rounded corners reach the saved geometry',async()=>{
+  const e=editor();e.ids.capHeight.value='17.2';e.ids.capHeight.events.input();e.flush();assert.equal(e.ids.bodyDownload.disabled,true);assert.match(e.ids.capStatus.textContent,/최소 17.3mm/);
+  e.ids.capHeight.value='17.3';e.ids.capHeight.events.input();e.flush();assert.equal(e.ids.bodyDownload.disabled,false);
+  async function bodyVertices(){e.ids.bodyDownload.onclick();const files=e.context.fflate.unzipSync(new Uint8Array(await e.blob.arrayBuffer()));const xml=e.context.fflate.strFromU8(files['3D/Objects/object_1.model']);return [...xml.matchAll(/<vertex x="([^"]+)" y="([^"]+)" z="([^"]+)"/g)].map(m=>m.slice(1).map(Number));}
+  const rounded=await bodyVertices();assert.equal(Math.max(...rounded.map(v=>v[2])),17.3);assert(!rounded.some(v=>Math.abs(v[0])===9&&Math.abs(v[1])===9));
+  e.ids.roundCorners.checked=false;e.ids.roundCorners.events.input();e.flush();assert.equal(e.ids.cornerRadius.disabled,true);const square=await bodyVertices();assert(square.some(v=>Math.abs(v[0])===9&&Math.abs(v[1])===9));assert(square.length<rounded.length);
+  e.ids.roundCorners.checked=true;e.ids.cornerRadius.value='5';e.ids.roundCorners.events.input();e.flush();assert.equal(e.ids.cornerRadius.disabled,false);const softer=await bodyVertices();assert.notDeepEqual(softer,rounded);
+});

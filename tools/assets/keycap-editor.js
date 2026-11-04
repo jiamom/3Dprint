@@ -2,7 +2,7 @@
   const $=id=>document.getElementById(id),fonts=window.BAMBU_FONTS,canvas=$('capPreview'),ctx=canvas.getContext('2d'),viewer=new Keyring3D(canvas);
   let caps=[],font=null,models=[],pending=null;const cache=new Map(),fontCache=new Map();
   const colors=['#F22974','#FFDF31','#F22974'];
-  function settings(){return {size:Number($('capSize').value),height:Number($('capHeight').value),hole:0,recessDepth:Number($('recessDepth').value),clearance:Number($('fitClearance').value)};}
+  function settings(){return {size:Number($('capSize').value),height:Number($('capHeight').value),hole:0,roundCorners:$('roundCorners').checked,cornerRadius:Number($('cornerRadius').value),recessDepth:Number($('recessDepth').value),clearance:Number($('fitClearance').value)};}
   function syncName(){
     const raw=$('capName').value,value=raw.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,1);$('capName').value=value;
     caps=value?[{letter:value,colors}]:[];renderChoices();schedule();
@@ -25,12 +25,12 @@
   }
   function enableDownloads(enabled){for(const id of ['capDownload','bodyDownload','lidDownload','letterDownload'])$(id).disabled=!enabled;}
   function update(){
-    pending=null;const s=settings();$('sizeOut').value=s.size+' mm';$('heightOut').value=s.height+' mm';$('recessOut').value=s.recessDepth.toFixed(1)+' mm';$('clearanceOut').value=s.clearance.toFixed(2)+' mm / 면';
+    pending=null;const s=settings();$('cornerRadius').disabled=!s.roundCorners;$('radiusOut').value=s.roundCorners?s.cornerRadius.toFixed(1)+' mm':'각진 모서리';$('sizeOut').value=s.size+' mm';$('heightOut').value=s.height+' mm';$('recessOut').value=s.recessDepth.toFixed(1)+' mm';$('clearanceOut').value=s.clearance.toFixed(2)+' mm / 면';
     $('capCount').textContent=caps.length+' CAP';$('capDimensions').textContent=s.size+' × '+s.size+' × '+(s.height+3.8-s.recessDepth).toFixed(1)+' mm / 개';
     enableDownloads(false);
     try {
       if(!font)return;if(!caps.length)throw Error('알파벳이나 숫자 한 글자를 선택해 주세요.');
-      models=caps.map(cap=>{const key=[$('capFont').value,cap.letter,s.size,s.height,s.recessDepth,s.clearance].join(':');if(!cache.has(key)){if(cache.size>180)cache.clear();cache.set(key,makeKeycap(font,cap.letter,s));}return cache.get(key);});
+      models=caps.map(cap=>{const key=[$('capFont').value,cap.letter,s.size,s.height,s.recessDepth,s.clearance,s.roundCorners,s.cornerRadius].join(':');if(!cache.has(key)){if(cache.size>180)cache.clear();cache.set(key,makeKeycap(font,cap.letter,s));}return cache.get(key);});
       if(viewer.gl)viewer.setMeshes(displayParts(models[0]));flatPaint();$('capStatus').textContent='뚜껑 홈에 글씨를 맞춰 접착하세요. 각 부품은 별도 파일로 저장할 수 있습니다.';enableDownloads(true);
     } catch(error){models=[];viewer.clear();ctx.clearRect(0,0,canvas.width,canvas.height);$('capStatus').textContent=error.message;}
   }
@@ -41,7 +41,7 @@
   $('capName').addEventListener('input',syncName);$('capFont').addEventListener('change',chooseFont);
   $('resetName').onclick=()=>{$('capName').value='';syncName();};
   ['bodyColor','topColor','letterColor'].forEach((id,i)=>$(id).addEventListener('input',()=>{colors[i]=$(id).value;renderChoices();schedule();}));
-  for(const id of ['capSize','capHeight','recessDepth','fitClearance','previewMode'])$(id).addEventListener('input',schedule);
+  for(const id of ['capSize','capHeight','recessDepth','fitClearance','previewMode','roundCorners','cornerRadius'])$(id).addEventListener('input',schedule);
   function download(only){
     if(pending!==null){cancelAnimationFrame(pending);pending=null;}update();if($('capDownload').disabled)return;
     try {

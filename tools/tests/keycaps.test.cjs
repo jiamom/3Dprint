@@ -13,11 +13,11 @@ test('the cord tunnel is open, removes the correct volume, and leaves a closed s
 test('all selectable letters and digits produce manifold body, top and lettering',()=>{
   for(const letter of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'){
     ctx.letter=letter;
-    assert.equal(vm.runInContext(`(()=>{const c=makeKeycap(capFont,letter,{size:18,height:6,hole:3.2});return [c.body,c.top,c.letters].every(m=>{const r=manifoldReport(m);return !r.badEdges&&!r.degenerate})})()`,ctx),true,letter);
+    assert.equal(vm.runInContext(`(()=>{const c=makeKeycap(capFont,letter,{size:18,height:18,hole:3.2});return [c.body,c.top,c.letters].every(m=>{const r=manifoldReport(m);return !r.badEdges&&!r.degenerate})})()`,ctx),true,letter);
   }
 });
 test('3MF keeps separate beads, deduplicates colours, and maps every part to the right slot',()=>{
-  const result=vm.runInContext(`(()=>{const c=makeKeycap(capFont,'A',{size:18,height:6,hole:3.2});return Bambu3MF.write({title:'A & B',objects:[{name:'A',position:[20,20,0],parts:[{name:'Body',mesh:c.body,color:'#f22974'},{name:'Top',mesh:c.top,color:'#ffdf31'},{name:'Letter',mesh:c.letters,color:'#f22974'}]},{name:'B',position:[42,20,0],parts:[{name:'Body',mesh:c.body,color:'#f22974'}]}]})})()`,ctx);
+  const result=vm.runInContext(`(()=>{const c=makeKeycap(capFont,'A',{size:18,height:18,hole:3.2});return Bambu3MF.write({title:'A & B',objects:[{name:'A',position:[20,20,0],parts:[{name:'Body',mesh:c.body,color:'#f22974'},{name:'Top',mesh:c.top,color:'#ffdf31'},{name:'Letter',mesh:c.letters,color:'#f22974'}]},{name:'B',position:[42,20,0],parts:[{name:'Body',mesh:c.body,color:'#f22974'}]}]})})()`,ctx);
   const files=ctx.fflate.unzipSync(result.bytes),read=name=>ctx.fflate.strFromU8(files[name]),project=JSON.parse(read('Metadata/project_settings.config'));
   assert.deepEqual(project.filament_colour,['#F22974','#FFDF31']);
   assert.equal(project.printer_model,'Bambu Lab P2S');
@@ -45,7 +45,7 @@ test('the new page and menu scripts parse and load all required local assets',()
 
 
 test('letter pocket is blind, has assembly clearance, and removes exactly its volume',()=>{
-  const result=vm.runInContext(`(()=>{const c=makeKeycap(capFont,'B',{size:18,height:6,recessDepth:.6,clearance:.15});const volume=m=>Math.abs(m.f.reduce((sum,f)=>{const[a,b,c]=f.map(i=>m.v[i]);return sum+(a[0]*(b[1]*c[2]-b[2]*c[1])+a[1]*(b[2]*c[0]-b[0]*c[2])+a[2]*(b[0]*c[1]-b[1]*c[0]))/6},0));const area=tree=>Math.abs(pathsOf(tree).reduce((n,p)=>n+ClipperLib.Clipper.Area(p),0))/UNIT**2;return {removed:volume(extrude(c.topTree,0,c.lidThickness))-volume(c.top),expected:area(c.pocket)*c.depth,larger:area(c.pocket)>area(c.text),minZ:Math.min(...c.top.v.map(v=>v[2])),floorZ:c.lidThickness-c.depth,hasFloor:c.top.v.some(v=>Math.abs(v[2]-(c.lidThickness-c.depth))<1e-6),objects:keycapPrintObjects(c,{size:18},['#123456','#abcdef','#fedcba'],'B').map(o=>({x:o.position[0],minZ:Math.min(...o.parts[0].mesh.v.map(v=>v[2]))}))}})()`,ctx);
+  const result=vm.runInContext(`(()=>{const c=makeKeycap(capFont,'B',{size:18,height:18,recessDepth:.6,clearance:.15});const volume=m=>Math.abs(m.f.reduce((sum,f)=>{const[a,b,c]=f.map(i=>m.v[i]);return sum+(a[0]*(b[1]*c[2]-b[2]*c[1])+a[1]*(b[2]*c[0]-b[0]*c[2])+a[2]*(b[0]*c[1]-b[1]*c[0]))/6},0));const area=tree=>Math.abs(pathsOf(tree).reduce((n,p)=>n+ClipperLib.Clipper.Area(p),0))/UNIT**2;return {removed:volume(extrude(c.topTree,0,c.lidThickness))-volume(c.top),expected:area(c.pocket)*c.depth,larger:area(c.pocket)>area(c.text),minZ:Math.min(...c.top.v.map(v=>v[2])),floorZ:c.lidThickness-c.depth,hasFloor:c.top.v.some(v=>Math.abs(v[2]-(c.lidThickness-c.depth))<1e-6),objects:keycapPrintObjects(c,{size:18},['#123456','#abcdef','#fedcba'],'B').map(o=>({x:o.position[0],minZ:Math.min(...o.parts[0].mesh.v.map(v=>v[2]))}))}})()`,ctx);
   assert(Math.abs(result.removed-result.expected)<.0001);assert(result.larger);assert.equal(result.minZ,0);assert(result.floorZ>1);assert(result.hasFloor);assert.equal(result.objects.length,3);for(let i=0;i<3;i++){assert.equal(result.objects[i].minZ,0);if(i)assert(result.objects[i].x-result.objects[i-1].x>=24);}
 });
 
@@ -53,6 +53,6 @@ test('all font and letter choices produce closed separate parts with a recessed 
   vm.runInContext(fs.readFileSync(path.join(root,'fonts/keyring-fonts.js'),'utf8'),ctx);for(let i=12;i<=17;i++)vm.runInContext(fs.readFileSync(path.join(root,'fonts/keyring-font-'+i+'.js'),'utf8'),ctx);
   for(let i=0;i<6;i++)for(const letter of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'){
     ctx.fontIndex=i;ctx.letter=letter;
-    assert.equal(vm.runInContext(`(()=>{const f=opentype.parse(Uint8Array.from(atob(BAMBU_FONTS[fontIndex].data),c=>c.charCodeAt(0)).buffer),m=makeKeycap(f,letter,{size:18,height:6});return [m.body,m.top,m.letters].every(p=>{const r=manifoldReport(p);return !r.badEdges&&!r.degenerate})})()`,ctx),true,i+':'+letter);
+    assert.equal(vm.runInContext(`(()=>{const f=opentype.parse(Uint8Array.from(atob(BAMBU_FONTS[fontIndex].data),c=>c.charCodeAt(0)).buffer),m=makeKeycap(f,letter,{size:18,height:18});return [m.body,m.top,m.letters].every(p=>{const r=manifoldReport(p);return !r.badEdges&&!r.degenerate})})()`,ctx),true,i+':'+letter);
   }
 });

@@ -5,7 +5,7 @@ const root=path.join(__dirname,'../..');
 const sources=['otf/Chicalo-ZpdvB.otf','otf/NiceBounce-7OJ94.otf','ttf/TannenbergFett-R9Wq3.ttf','ttf/SuperGhost-lx1WV.ttf','ttf/SubwayBlack-yYEvd.ttf','ttf/SubwayShadow-9M0Lj.ttf'];
 function library(){
   const ctx={console,navigator:{userAgent:'node'},TextEncoder,TextDecoder,Uint8Array,ArrayBuffer,DataView};ctx.self=ctx;ctx.window=ctx;vm.createContext(ctx);
-  for(const name of ['clipper','earcut','fflate','opentype','mesh-utils','name-keyring-core'])vm.runInContext(fs.readFileSync(path.join(root,'tools/assets/'+name+'.js'),'utf8'),ctx);
+  for(const name of ['clipper','earcut','fflate','opentype','mesh-utils','bambu-project-defaults','bambu-3mf','name-keyring-core'])vm.runInContext(fs.readFileSync(path.join(root,'tools/assets/'+name+'.js'),'utf8'),ctx);
   vm.runInContext(fs.readFileSync(path.join(root,'fonts/keyring-fonts.js'),'utf8'),ctx);
   for(let i=1;i<=17;i++)vm.runInContext(fs.readFileSync(path.join(root,'fonts/keyring-font-'+String(i).padStart(2,'0')+'.js'),'utf8'),ctx);
   return ctx;

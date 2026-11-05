@@ -109,15 +109,22 @@ window.Keyring3D = class Keyring3D {
   setMeshes(parts) {
     if (!this.gl) return;
     const data = [], min = [Infinity,Infinity,Infinity], max = [-Infinity,-Infinity,-Infinity];
-    for (const { mesh, color } of parts) {
+    for (const { mesh, color, smooth = false } of parts) {
       const rgb = color.match(/[a-f\d]{2}/gi).map(c => parseInt(c,16)/255);
       for (const v of mesh.v) for (let k=0;k<3;k++) { min[k]=Math.min(min[k],v[k]); max[k]=Math.max(max[k],v[k]); }
-      for (const f of mesh.f) {
+      const faceNormals=[],adjacent=smooth?mesh.v.map(()=>[]):null;
+      if(smooth)mesh.f.forEach((f,i)=>{const[a,b,c]=f.map(j=>mesh.v[j]),u=b.map((v,k)=>v-a[k]),v=c.map((n,k)=>n-a[k]),n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],length=Math.hypot(...n)||1;faceNormals[i]=n.map(x=>x/length);f.forEach(j=>adjacent[j].push(i));});
+      for (let faceIndex=0;faceIndex<mesh.f.length;faceIndex++) {
+        const f=mesh.f[faceIndex];
         const [a,b,c] = f.map(i => mesh.v[i]);
         const u=b.map((v,i)=>v-a[i]), v=c.map((v,i)=>v-a[i]);
         const n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
         const length=Math.hypot(...n); if (!length) continue;
-        for (const p of [a,b,c]) data.push(...p,...n.map(x=>x/length),...rgb);
+        for (let corner=0;corner<3;corner++) {
+          let normal=n.map(x=>x/length);
+          if(smooth){const reference=faceNormals[faceIndex],sum=[0,0,0];for(const i of adjacent[f[corner]]){const candidate=faceNormals[i];if(candidate.reduce((v,x,k)=>v+x*reference[k],0)>.5)for(let k=0;k<3;k++)sum[k]+=candidate[k];}const norm=Math.hypot(...sum)||1;normal=sum.map(x=>x/norm);}
+          data.push(...[a,b,c][corner],...normal,...rgb);
+        }
       }
     }
     this.center = min.map((v,i)=>(v+max[i])/2);

@@ -101,3 +101,9 @@ test('reference body type replaces the old body without changing the input',asyn
   const e=editor(true);assert.equal(e.ids.bodyType.value,'frill');assert.equal(e.ids.capDownload.disabled,false);
   vm.runInContext(fs.readFileSync(path.join(root,'tools/assets/jd-body-spiky.js'),'utf8'),e.context);e.ids.bodyType.value='spiky';await e.ids.bodyType.events.change();assert.equal(e.ids.capName.value,'JIA');assert.equal(e.ids.capDownload.disabled,false);await e.ids.bodyDownload.onclick();assert.equal(e.context.savedRecords.at(-1).settings.bodyType,'spiky');
 });
+
+
+test('glyph height and crown rounding options reach saved 3MF decoration geometry',async()=>{
+  const e=editor();e.ids.symbolChoices.children[0].onclick();e.ids.glyphThickness.value='3.5';e.ids.glyphRound.value='1.8';e.ids.glyphThickness.events.input();e.flush();await e.ids.letterDownload.onclick();const f=e.context.fflate.unzipSync(new Uint8Array(await e.blob.arrayBuffer())),xml=e.context.fflate.strFromU8(f['3D/Objects/object_1.model']),z=[...xml.matchAll(/ z="([^"]+)"/g)].map(m=>Number(m[1]));assert.equal(Math.max(...z),3.5);assert(new Set(z).size>10);assert.equal(e.context.savedRecords.at(-1).settings.glyphThickness,3.5);
+  e.ids.glyphRound.value='0';e.ids.glyphRound.events.input();e.flush();await e.ids.letterDownload.onclick();const ff=e.context.fflate.unzipSync(new Uint8Array(await e.blob.arrayBuffer())),flat=e.context.fflate.strFromU8(ff['3D/Objects/object_1.model']);assert.equal(new Set([...flat.matchAll(/ z="([^"]+)"/g)].map(m=>Number(m[1]))).size,2);
+});

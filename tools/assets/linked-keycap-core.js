@@ -55,7 +55,7 @@ function linkedKeycapPlacements(model,settings,mode){
 }
 function linkedKeycapPreview(model,settings,colors,mode){
   const poses=linkedKeycapPlacements(model,settings,mode),parts=[{mesh:model.body,color:colors[0]}];if(model.ring?.mesh)parts.push({mesh:model.ring.mesh,color:colors[0]});
-  model.caps.forEach((c,i)=>parts.push({mesh:keycapMoveMesh(c.top,poses[i].lid,mode==='inside'?c.lidZ:null),color:colors[1]},{mesh:keycapMoveMesh(c.letters,poses[i].letter),color:colors[2]}));return parts;
+  model.caps.forEach((c,i)=>parts.push({mesh:keycapMoveMesh(c.top,poses[i].lid,mode==='inside'?c.lidZ:null),color:colors[1]},{mesh:keycapMoveMesh(c.letters,poses[i].letter),color:colors[2],smooth:true}));return parts;
 }
 function linkedKeycapPrintObjects(model,settings,colors,only='all'){
   const items=[];

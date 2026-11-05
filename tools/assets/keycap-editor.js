@@ -4,7 +4,7 @@
   let linkedModel=null;
   let caps=[],font=null,models=[],pending=null,saving=false;const cache=new Map(),fontCache=new Map();
   const colors=['#F22974','#FFDF31','#F22974'];
-  function settings(){return {bodyType:$('bodyType')?.value||'frill',direction:$('linkDirection')?.value||'horizontal',edgeRadius:Number($('edgeRadius')?.value??1.2),withRing:$('withRing').checked,ringAngle:Number($('ringAngle').value),ringHole:Number($('ringHole').value),ringWall:Number($('ringWall').value),ringThickness:Number($('ringThickness').value),size:linked?22:Number($('capSize').value),height:Number($('capHeight').value),hole:0,switchFit:Number($('switchFit').value),roundCorners:$('roundCorners').checked,cornerRadius:Number($('cornerRadius').value),recessDepth:Number($('recessDepth').value),clearance:Number($('fitClearance').value)};}
+  function settings(){return {glyphThickness:Number($('glyphThickness')?.value??2.8),glyphRound:Number($('glyphRound')?.value??1.2),bodyType:$('bodyType')?.value||'frill',direction:$('linkDirection')?.value||'horizontal',edgeRadius:Number($('edgeRadius')?.value??1.2),withRing:$('withRing').checked,ringAngle:Number($('ringAngle').value),ringHole:Number($('ringHole').value),ringWall:Number($('ringWall').value),ringThickness:Number($('ringThickness').value),size:linked?22:Number($('capSize').value),height:Number($('capHeight').value),hole:0,switchFit:Number($('switchFit').value),roundCorners:$('roundCorners').checked,cornerRadius:Number($('cornerRadius').value),recessDepth:Number($('recessDepth').value),clearance:Number($('fitClearance').value)};}
   function syncName(){
     const raw=$('capName').value,value=keycapNormalizeText(raw,linked?8:1);$('capName').value=value;
     caps=[...value].map(letter=>({letter,colors}));renderChoices();schedule();
@@ -17,7 +17,7 @@
   function displayParts(m){
     if(linked)return linkedKeycapPreview(linkedModel,settings(),colors,$('previewMode').value);
     const s=settings(),split=$('previewMode').value!=='assembled',meshes=[m.body,m.top,m.letters],positions=keycapPreviewPositions(m),offsets=split?positions.map(x=>[x,0,0]):[[0,0,0],[0,0,m.lidBaseOffset],[0,0,m.letterBaseOffset]];
-    return meshes.map((mesh,j)=>({mesh:{v:mesh.v.map(v=>{const p=$('previewMode').value==='inside'&&j===1?[v[0],-v[1],m.lidZ-v[2]]:v;return p.map((n,k)=>n+offsets[j][k]);}),f:mesh.f},color:colors[j]}));
+    return meshes.map((mesh,j)=>({mesh:{v:mesh.v.map(v=>{const p=$('previewMode').value==='inside'&&j===1?[v[0],-v[1],m.lidZ-v[2]]:v;return p.map((n,k)=>n+offsets[j][k]);}),f:mesh.f},color:colors[j],smooth:j===2}));
   }
   function flatPaint(){
     ctx.clearRect(0,0,canvas.width,canvas.height);if(!models.length)return;
@@ -36,15 +36,15 @@
   }
   function enableDownloads(enabled){for(const id of ['capDownload','bodyDownload','lidDownload','letterDownload'])$(id).disabled=!enabled||saving;}
   function update(){
-    pending=null;const s=settings();for(const id of ['ringAngle','ringHole','ringWall','ringThickness'])$(id).disabled=!s.withRing;$('ringAngleOut').value=['위쪽','오른쪽 위','오른쪽','오른쪽 아래','아래쪽','왼쪽 아래','왼쪽','왼쪽 위'][Math.round(s.ringAngle/45)%8]+' · '+s.ringAngle+'°';$('ringHoleOut').value=s.ringHole+' mm';$('ringWallOut').value=s.ringWall+' mm';$('ringThicknessOut').value=s.ringThickness+' mm';$('ringOuterOut').textContent='고리 바깥 지름 '+(s.ringHole+2*s.ringWall).toFixed(1)+' mm';$('cornerRadius').disabled=!s.roundCorners;$('radiusOut').value=s.roundCorners?s.cornerRadius.toFixed(1)+' mm':'각진 모서리';$('switchFitOut').value=s.switchFit.toFixed(2)+' mm / 면';if(linked){$('edgeRadiusOut').value=s.edgeRadius.toFixed(1)+' mm';$('edgeRadius').disabled=!s.roundCorners;}$('sizeOut').value=s.size+' mm';$('heightOut').value=s.height+' mm';$('recessOut').value=s.recessDepth.toFixed(1)+' mm';$('clearanceOut').value=s.clearance.toFixed(2)+' mm / 면';
+    pending=null;const s=settings();$('glyphThicknessOut').value=s.glyphThickness.toFixed(1)+' mm';$('glyphRoundOut').value=s.glyphRound?s.glyphRound.toFixed(1)+' mm':'평평한 윗면';$('glyphHeightNote').value=s.glyphThickness.toFixed(1);for(const id of ['ringAngle','ringHole','ringWall','ringThickness'])$(id).disabled=!s.withRing;$('ringAngleOut').value=['위쪽','오른쪽 위','오른쪽','오른쪽 아래','아래쪽','왼쪽 아래','왼쪽','왼쪽 위'][Math.round(s.ringAngle/45)%8]+' · '+s.ringAngle+'°';$('ringHoleOut').value=s.ringHole+' mm';$('ringWallOut').value=s.ringWall+' mm';$('ringThicknessOut').value=s.ringThickness+' mm';$('ringOuterOut').textContent='고리 바깥 지름 '+(s.ringHole+2*s.ringWall).toFixed(1)+' mm';$('cornerRadius').disabled=!s.roundCorners;$('radiusOut').value=s.roundCorners?s.cornerRadius.toFixed(1)+' mm':'각진 모서리';$('switchFitOut').value=s.switchFit.toFixed(2)+' mm / 면';if(linked){$('edgeRadiusOut').value=s.edgeRadius.toFixed(1)+' mm';$('edgeRadius').disabled=!s.roundCorners;}$('sizeOut').value=s.size+' mm';$('heightOut').value=s.height+' mm';$('recessOut').value=s.recessDepth.toFixed(1)+' mm';$('clearanceOut').value=s.clearance.toFixed(2)+' mm / 면';
     $('capCount').textContent=caps.length+' CAP';$('capDimensions').textContent=s.size+' × '+s.size+' × '+(s.height+5.3-s.recessDepth).toFixed(1)+' mm / 개';
     enableDownloads(false);
     try {
       if(!font)return;if(!caps.length)throw Error('글자 또는 도형 한 글자를 선택해 주세요.');
       if(linked){const key='linked:'+JSON.stringify([$('capName').value,$('capFont').value,s]);if(!cache.has(key)){if(cache.size>3)cache.clear();cache.set(key,makeLinkedKeycaps(font,$('capName').value,s));}linkedModel=cache.get(key);models=linkedModel.caps;}else{
-      models=caps.map(cap=>{const key=[$('capFont').value,cap.letter,s.size,s.height,s.recessDepth,s.clearance,s.roundCorners,s.cornerRadius,s.switchFit,s.withRing,s.ringAngle,s.ringHole,s.ringWall,s.ringThickness].join(':');if(!cache.has(key)){if(cache.size>180)cache.clear();cache.set(key,makeKeycap(font,cap.letter,s));}return cache.get(key);});
+      models=caps.map(cap=>{const key=[$('capFont').value,cap.letter,s.size,s.height,s.recessDepth,s.clearance,s.roundCorners,s.cornerRadius,s.switchFit,s.glyphThickness,s.glyphRound,s.withRing,s.ringAngle,s.ringHole,s.ringWall,s.ringThickness].join(':');if(!cache.has(key)){if(cache.size>180)cache.clear();cache.set(key,makeKeycap(font,cap.letter,s));}return cache.get(key);});
       }
-      if(viewer.gl)viewer.setMeshes(displayParts(models[0]));flatPaint();if(linked){const b=linkedKeycapBodyBounds(linkedModel);$('capDimensions').textContent=b.width.toFixed(1)+' × '+b.height.toFixed(1)+' × '+linkedModel.height.toFixed(1)+' mm';}$('capStatus').textContent='내부 홈 보기에서 스위치 장착 공간과 십자 홈을 확인하세요. 실물 스위치에 맞춰 시험 조립 후 여유를 조절하세요.';enableDownloads(true);
+      if(viewer.gl)viewer.setMeshes(displayParts(models[0]));flatPaint();if(!linked)$('capDimensions').textContent=s.size+' × '+s.size+' × '+models[0].height.toFixed(1)+' mm';if(linked){const b=linkedKeycapBodyBounds(linkedModel);$('capDimensions').textContent=b.width.toFixed(1)+' × '+b.height.toFixed(1)+' × '+linkedModel.height.toFixed(1)+' mm';}$('capStatus').textContent='내부 홈 보기에서 스위치 장착 공간과 십자 홈을 확인하세요. 실물 스위치에 맞춰 시험 조립 후 여유를 조절하세요.';enableDownloads(true);
     } catch(error){models=[];viewer.clear();ctx.clearRect(0,0,canvas.width,canvas.height);$('capStatus').textContent=error.message;}
   }
   function chooseFont(){try{const i=Number($('capFont').value);if(!fontCache.has(i))fontCache.set(i,opentype.parse(Uint8Array.from(atob(fonts[i].data),c=>c.charCodeAt(0)).buffer));font=fontCache.get(i);update();}catch(error){font=null;models=[];viewer.clear();enableDownloads(false);$('capStatus').textContent='글꼴을 읽지 못했습니다: '+error.message;}}
@@ -57,7 +57,7 @@
   if($('backspace'))$('backspace').onclick=()=>{$('capName').value=[...$('capName').value].slice(0,-1).join('');syncName();};
   $('resetName').onclick=()=>{$('capName').value='';syncName();};
   ['bodyColor','topColor','letterColor'].forEach((id,i)=>$(id).addEventListener('input',()=>{colors[i]=$(id).value;renderChoices();schedule();}));
-  for(const id of ['capSize','capHeight','recessDepth','fitClearance','previewMode','roundCorners','cornerRadius','switchFit','withRing','ringAngle','ringHole','ringWall','ringThickness'])$(id).addEventListener('input',schedule);
+  for(const id of ['capSize','capHeight','recessDepth','fitClearance','previewMode','roundCorners','cornerRadius','switchFit','withRing','ringAngle','ringHole','ringWall','ringThickness','glyphThickness','glyphRound'])$(id).addEventListener('input',schedule);
   if(linked)for(const id of ['linkDirection','edgeRadius'])$(id).addEventListener('input',schedule);
   const bodyLoads=new Map();
   async function ensureBody(type){

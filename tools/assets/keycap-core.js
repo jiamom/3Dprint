@@ -110,12 +110,56 @@ function keycapSymbol(letter,height){
   const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]),x=(Math.min(...xs)+Math.max(...xs))/2,y=(Math.min(...ys)+Math.max(...ys))/2,scale=height/(Math.max(...ys)-Math.min(...ys));
   return clip(intPaths([points.map(p=>[(p[0]-x)*scale,(p[1]-y)*scale])]));
 }
+function keycapPuffyGlyph(tree,height,insertDepth,rounding){
+  if(!rounding)return extrude(tree,0,height);
+  // Some decorative fonts contain disconnected islands that touch at a point.
+  // Keep their vertex IDs separate, as with the original flat extrusion.
+  const combined=makeMesh();
+  function walk(node){
+    if(node.Contour().length&&!node.IsHole()){
+      const part=keycapPuffyPart(clip([node.Contour(),...node.Childs().filter(c=>c.IsHole()).map(c=>c.Contour())]),height,insertDepth,rounding),offset=combined.v.length;
+      combined.v.push(...part.v);for(const face of part.f)combined.f.push(face.map(i=>i+offset));
+    }
+    node.Childs().forEach(walk);
+  }
+  tree.Childs().forEach(walk);return combined;
+}
+function keycapPuffyPart(tree,height,insertDepth,rounding){
+  // Clip a regular grid to the original outline: uniform crown detail without
+  // repeatedly subdividing the very thin triangles in densely sampled fonts.
+  let top=makeMesh();const paths=pathsOf(tree),step=Math.round(.32*UNIT),boundary=new Set(),points=paths.flat();
+  for(const ring of paths)for(let i=0;i<ring.length;i++){
+    const a=ring[i],b=ring[(i+1)%ring.length];
+    for(let x=Math.floor((Math.min(a.X,b.X)-1)/step);x<=Math.floor((Math.max(a.X,b.X)+1)/step);x++)for(let y=Math.floor((Math.min(a.Y,b.Y)-1)/step);y<=Math.floor((Math.max(a.Y,b.Y)+1)/step);y++)boundary.add(x+','+y);
+  }
+  const xs=points.map(p=>p.X),ys=points.map(p=>p.Y);
+  for(let x=Math.floor(Math.min(...xs)/step);x<=Math.floor(Math.max(...xs)/step);x++)for(let y=Math.floor(Math.min(...ys)/step);y<=Math.floor(Math.max(...ys)/step);y++){
+    const x0=x*step,y0=y*step,x1=x0+step,y1=y0+step;
+    if(boundary.has(x+','+y))surface(top,clip([[{X:x0,Y:y0},{X:x1,Y:y0},{X:x1,Y:y1},{X:x0,Y:y1}]],paths,ClipperLib.ClipType.ctIntersection),0,true);
+    else if(paths.reduce((n,p)=>n+(ClipperLib.Clipper.PointInPolygon({X:x0+step/2,Y:y0+step/2},p)!==0?1:0),0)%2){
+      const a=vertex(top,x0/UNIT,y0/UNIT,0),b=vertex(top,x1/UNIT,y0/UNIT,0),c=vertex(top,x1/UNIT,y1/UNIT,0),d=vertex(top,x0/UNIT,y1/UNIT,0);top.f.push([a,b,c],[a,c,d]);
+    }
+  }
+  top=repair(top,2/UNIT);
+  const cell=Math.max(.6,rounding),grid=new Map(),segments=[];
+  for(const ring of pathsOf(tree))for(let i=0;i<ring.length;i++){
+    const a=ring[i],b=ring[(i+1)%ring.length],x=a.X/UNIT,y=a.Y/UNIT,xx=b.X/UNIT,yy=b.Y/UNIT,dx=xx-x,dy=yy-y,length=dx*dx+dy*dy;if(!length)continue;const id=segments.push({x,y,dx,dy,length})-1;
+    for(let gx=Math.floor((Math.min(x,xx)-rounding)/cell);gx<=Math.floor((Math.max(x,xx)+rounding)/cell);gx++)for(let gy=Math.floor((Math.min(y,yy)-rounding)/cell);gy<=Math.floor((Math.max(y,yy)+rounding)/cell);gy++){const key=gx+','+gy;if(!grid.has(key))grid.set(key,[]);grid.get(key).push(id);}
+  }
+  const distances=top.v.map(([x,y])=>{let distance=rounding**2;for(const id of grid.get(Math.floor(x/cell)+','+Math.floor(y/cell))||[]){const s=segments[id],t=Math.max(0,Math.min(1,((x-s.x)*s.dx+(y-s.y)*s.dy)/s.length));distance=Math.min(distance,(x-s.x-t*s.dx)**2+(y-s.y-t*s.dy)**2);}return distance<1e-12?0:Math.sqrt(distance);});
+  const radius=Math.max(.001,Math.min(rounding,Math.max(...distances))),side=Math.min(height-.2,insertDepth+.2),mesh=makeMesh();
+  const upper=top.v.map(([x,y],i)=>{const t=Math.min(1,distances[i]/radius),z=side+(height-side)*Math.sqrt(Math.max(0,1-(1-t)**2));return vertex(mesh,x,y,z);}),lower=top.v.map(([x,y])=>vertex(mesh,x,y,0)),edges=new Map();
+  for(const [a,b,c]of top.f){mesh.f.push([upper[a],upper[b],upper[c]],[lower[c],lower[b],lower[a]]);for(const [x,y]of [[a,b],[b,c],[c,a]]){const key=x<y?x+','+y:y+','+x;if(edges.has(key))edges.delete(key);else edges.set(key,[x,y]);}}
+  for(const [a,b]of edges.values())mesh.f.push([lower[a],lower[b],upper[b]],[lower[a],upper[b],upper[a]]);
+  return mesh;
+}
 function makeKeycap(font,letter,settings) {
-  const {size,height}=settings,topSize=size-3,lidThickness=2.4,depth=settings.recessDepth??.6,clearance=settings.clearance??.15,letterThickness=1.4,fit=settings.switchFit??0;
+  const {size,height}=settings,topSize=size-3,lidThickness=2.4,depth=settings.recessDepth??.6,clearance=settings.clearance??.15,letterThickness=settings.glyphThickness??2.8,glyphRound=settings.glyphRound??1.2,fit=settings.switchFit??0;
   if(!Number.isFinite(height)||height<KEYCAP_MIN_BODY_HEIGHT)throw Error('몸체 높이는 최소 '+KEYCAP_MIN_BODY_HEIGHT+'mm 이상으로 설정해 주세요.');
   const radius=settings.roundCorners===false?0:Math.min(settings.cornerRadius??3.5,size/2),topRadius=Math.max(0,radius-1.5);
   if(!Number.isFinite(radius)||radius<0)throw Error('모서리 둥글기를 확인해 주세요.');
   if(depth<.2||depth>1.2||clearance<.05||clearance>.4||fit<0||fit>.2)throw Error('홈 깊이와 조립 여유를 확인해 주세요.');
+  if(!Number.isFinite(letterThickness)||letterThickness<2||letterThickness>4||!Number.isFinite(glyphRound)||glyphRound<0||glyphRound>2)throw Error('글씨 높이와 둥글기를 확인해 주세요.');
   let text=keycapSymbol(letter,size*.55)||textContours(font,letter,size*.55,'center',0,0);
   const b=boundsOf(pathsOf(text)),ratio=Math.min(1,(topSize-3)/b.width,(topSize-3)/b.height);
   if(ratio<1)text=clip(pathsOf(text).map(p=>p.map(q=>({X:Math.round(q.X*ratio),Y:Math.round(q.Y*ratio)}))));
@@ -125,7 +169,7 @@ function makeKeycap(font,letter,settings) {
   const cross=clip([...pathsOf(keycapRectangle(m.crossSpan+2*fit,m.crossArm+2*fit)),...pathsOf(keycapRectangle(m.crossArm+2*fit,m.crossSpan+2*fit))]);
   const stem=keycapDifference(clip([circlePath(0,0,m.stemDiameter/2,64)]),cross),skirtOuter=keycapRoundedSquare(size-5.2,Math.max(0,radius-2.6)),skirtInner=keycapRoundedSquare(size-8,Math.max(0,radius-4));
   const underside=clip([...pathsOf(keycapDifference(skirtOuter,skirtInner)),...pathsOf(stem)]),plateZ=m.stemDepth,lidZ=plateZ+lidThickness;
-  const top=keycapLayers([{tree:underside,z0:0,z1:plateZ},{tree:topTree,z0:plateZ,z1:lidZ-depth},{tree:keycapDifference(topTree,pocket),z0:lidZ-depth,z1:lidZ}]),letters=extrude(text,0,letterThickness),body=frame.body;
+  const top=keycapLayers([{tree:underside,z0:0,z1:plateZ},{tree:topTree,z0:plateZ,z1:lidZ-depth},{tree:keycapDifference(topTree,pocket),z0:lidZ-depth,z1:lidZ}]),letters=keycapPuffyGlyph(text,letterThickness,depth,glyphRound),body=frame.body;
   for(const mesh of [body,top,letters]){const report=manifoldReport(mesh);if(report.badEdges||report.degenerate)throw Error('모델 메시를 완성하지 못했습니다. 크기나 글꼴을 변경해 주세요.');}
   const previewGap=1.5;
   return {...frame,top,letters,topTree,text,pocket,cross,skirtOuter,skirtInner,stem,lidThickness,depth,clearance,letterThickness,stemDepth:m.stemDepth,lidZ,lidBaseOffset:height+previewGap-plateZ,letterBaseOffset:height+previewGap+lidThickness-depth,height:height+previewGap+lidThickness-depth+letterThickness};

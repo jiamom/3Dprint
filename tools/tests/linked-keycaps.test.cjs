@@ -21,3 +21,13 @@ test('new menu, symbol placement and both page scripts point to real local asset
   const index=fs.readFileSync(path.join(root,'index.html'),'utf8');assert(index.includes('id="linkedNav"'));assert(index.includes('id="linkedCard"'));assert(index.includes('tools/Linked_Keycaps.html'));
   for(const file of ['tools/Alphabet_Keycaps.html','tools/Linked_Keycaps.html']){const html=fs.readFileSync(path.join(root,file),'utf8');assert(html.indexOf('id="symbolChoices"')<html.indexOf('id="alphabet"'));for(const m of html.matchAll(/<script src="([^"?]+)(?:\?[^"]*)?"/g))assert(fs.existsSync(path.resolve(root,path.dirname(file),m[1])));}
 });
+
+
+test('joined cases have no gap or connector and have real curved top and bottom edges',()=>{
+  const result=vm.runInContext(`(()=>{
+    const s={size:22,height:18,roundCorners:true,cornerRadius:6,edgeRadius:1.2,withRing:false},m=makeLinkedKeycaps(font,'JIA',s),b=keycapMeshBounds(m.body),top=m.caps[0],bottom=m.body.v.filter(v=>Math.abs(v[2])<1e-6),rim=m.body.v.filter(v=>Math.abs(v[2]-18)<1e-6);
+    function solid(mesh,x,y,z){const hits=[];for(const f of mesh.f){const[a,b,c]=f.map(i=>mesh.v[i]),den=(b[1]-c[1])*(a[0]-c[0])+(c[0]-b[0])*(a[1]-c[1]);if(Math.abs(den)<1e-10)continue;const u=((b[1]-c[1])*(x-c[0])+(c[0]-b[0])*(y-c[1]))/den,v=((c[1]-a[1])*(x-c[0])+(a[0]-c[0])*(y-c[1]))/den;if(u< -1e-8||v< -1e-8||u+v>1+1e-8)continue;const h=u*a[2]+v*b[2]+(1-u-v)*c[2];if(h>z+1e-7&&!hits.some(n=>Math.abs(n-h)<1e-6))hits.push(h);}return hits.length%2===1;}
+    return {pitch:m.positions[1][0],width:b.width,bridges:m.bridges.length,fullHeightJoint:[.5,9,17.5].every(z=>solid(m.body,10,9.4,z)),bottomRound:Math.max(...bottom.map(v=>v[1]))<b.y1-.9,topRound:Math.max(...rim.map(v=>v[1]))<b.y1-.9,curvedSlices:new Set(m.body.v.map(v=>v[2].toFixed(4))).size>24,separateLids:m.caps.length,lidRound:Math.max(...top.top.v.filter(v=>Math.abs(v[2]-top.lidZ)<1e-6).map(v=>v[0]))<(s.size-3)/2-.5};
+  })()`,ctx);
+  assert.equal(result.pitch,20);assert.equal(result.width,62);assert.equal(result.bridges,0);assert.equal(result.separateLids,3);for(const k of ['fullHeightJoint','bottomRound','topRound','curvedSlices','lidRound'])assert.equal(result[k],true,k);
+});

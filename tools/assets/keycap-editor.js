@@ -4,7 +4,7 @@
   let linkedModel=null;
   let caps=[],font=null,models=[],pending=null,saving=false;const cache=new Map(),fontCache=new Map();
   const colors=['#F22974','#FFDF31','#F22974'];
-  function settings(){return {direction:$('linkDirection')?.value||'horizontal',linkGap:Number($('linkGap')?.value||1),linkWidth:Number($('linkWidth')?.value||5),linkThickness:Number($('linkThickness')?.value||3),withRing:$('withRing').checked,ringAngle:Number($('ringAngle').value),ringHole:Number($('ringHole').value),ringWall:Number($('ringWall').value),ringThickness:Number($('ringThickness').value),size:Number($('capSize').value),height:Number($('capHeight').value),hole:0,switchFit:Number($('switchFit').value),roundCorners:$('roundCorners').checked,cornerRadius:Number($('cornerRadius').value),recessDepth:Number($('recessDepth').value),clearance:Number($('fitClearance').value)};}
+  function settings(){return {direction:$('linkDirection')?.value||'horizontal',edgeRadius:Number($('edgeRadius')?.value??1.2),withRing:$('withRing').checked,ringAngle:Number($('ringAngle').value),ringHole:Number($('ringHole').value),ringWall:Number($('ringWall').value),ringThickness:Number($('ringThickness').value),size:Number($('capSize').value),height:Number($('capHeight').value),hole:0,switchFit:Number($('switchFit').value),roundCorners:$('roundCorners').checked,cornerRadius:Number($('cornerRadius').value),recessDepth:Number($('recessDepth').value),clearance:Number($('fitClearance').value)};}
   function syncName(){
     const raw=$('capName').value,value=keycapNormalizeText(raw,linked?8:1);$('capName').value=value;
     caps=[...value].map(letter=>({letter,colors}));renderChoices();schedule();
@@ -35,7 +35,7 @@
   }
   function enableDownloads(enabled){for(const id of ['capDownload','bodyDownload','lidDownload','letterDownload'])$(id).disabled=!enabled||saving;}
   function update(){
-    pending=null;const s=settings();for(const id of ['ringAngle','ringHole','ringWall','ringThickness'])$(id).disabled=!s.withRing;$('ringAngleOut').value=['위쪽','오른쪽 위','오른쪽','오른쪽 아래','아래쪽','왼쪽 아래','왼쪽','왼쪽 위'][Math.round(s.ringAngle/45)%8]+' · '+s.ringAngle+'°';$('ringHoleOut').value=s.ringHole+' mm';$('ringWallOut').value=s.ringWall+' mm';$('ringThicknessOut').value=s.ringThickness+' mm';$('ringOuterOut').textContent='고리 바깥 지름 '+(s.ringHole+2*s.ringWall).toFixed(1)+' mm';$('cornerRadius').disabled=!s.roundCorners;$('radiusOut').value=s.roundCorners?s.cornerRadius.toFixed(1)+' mm':'각진 모서리';$('switchFitOut').value=s.switchFit.toFixed(2)+' mm / 면';if(linked){$('linkGapOut').value=s.linkGap.toFixed(1)+' mm';$('linkWidthOut').value=s.linkWidth+' mm';$('linkThicknessOut').value=s.linkThickness+' mm';}$('sizeOut').value=s.size+' mm';$('heightOut').value=s.height+' mm';$('recessOut').value=s.recessDepth.toFixed(1)+' mm';$('clearanceOut').value=s.clearance.toFixed(2)+' mm / 면';
+    pending=null;const s=settings();for(const id of ['ringAngle','ringHole','ringWall','ringThickness'])$(id).disabled=!s.withRing;$('ringAngleOut').value=['위쪽','오른쪽 위','오른쪽','오른쪽 아래','아래쪽','왼쪽 아래','왼쪽','왼쪽 위'][Math.round(s.ringAngle/45)%8]+' · '+s.ringAngle+'°';$('ringHoleOut').value=s.ringHole+' mm';$('ringWallOut').value=s.ringWall+' mm';$('ringThicknessOut').value=s.ringThickness+' mm';$('ringOuterOut').textContent='고리 바깥 지름 '+(s.ringHole+2*s.ringWall).toFixed(1)+' mm';$('cornerRadius').disabled=!s.roundCorners;$('radiusOut').value=s.roundCorners?s.cornerRadius.toFixed(1)+' mm':'각진 모서리';$('switchFitOut').value=s.switchFit.toFixed(2)+' mm / 면';if(linked){$('edgeRadiusOut').value=s.edgeRadius.toFixed(1)+' mm';$('edgeRadius').disabled=!s.roundCorners;}$('sizeOut').value=s.size+' mm';$('heightOut').value=s.height+' mm';$('recessOut').value=s.recessDepth.toFixed(1)+' mm';$('clearanceOut').value=s.clearance.toFixed(2)+' mm / 면';
     $('capCount').textContent=caps.length+' CAP';$('capDimensions').textContent=s.size+' × '+s.size+' × '+(s.height+5.3-s.recessDepth).toFixed(1)+' mm / 개';
     enableDownloads(false);
     try {
@@ -51,13 +51,13 @@
   for(const [symbol,label] of [['♥','하트'],['⚡','번개'],['★','별']]){const button=document.createElement('button');button.type='button';button.textContent=symbol;button.setAttribute('aria-label',label+' 선택');button.title=label;button.onclick=()=>chooseCharacter(symbol);$('symbolChoices').append(button);}
   function chooseCharacter(value){if(linked&&caps.length>=8){$('capStatus').textContent='글자와 도형은 최대 8개까지 넣을 수 있습니다.';return;}$('capName').value=linked?$('capName').value+value:value;syncName();}
   fonts.forEach((item,i)=>{const option=document.createElement('option');option.value=i;option.textContent=item.name.replace(' · 영문','');$('capFont').append(option);});
-  $('capFont').value=String(Math.max(0,fonts.findIndex(f=>f.name.startsWith('Nice Bounce'))));
+  $('capFont').value=String(Math.max(0,fonts.findIndex(f=>linked?f.name==='배민 주아체':f.name.startsWith('Nice Bounce'))));
   $('capName').addEventListener('input',syncName);$('capFont').addEventListener('change',chooseFont);
   if($('backspace'))$('backspace').onclick=()=>{$('capName').value=[...$('capName').value].slice(0,-1).join('');syncName();};
   $('resetName').onclick=()=>{$('capName').value='';syncName();};
   ['bodyColor','topColor','letterColor'].forEach((id,i)=>$(id).addEventListener('input',()=>{colors[i]=$(id).value;renderChoices();schedule();}));
   for(const id of ['capSize','capHeight','recessDepth','fitClearance','previewMode','roundCorners','cornerRadius','switchFit','withRing','ringAngle','ringHole','ringWall','ringThickness'])$(id).addEventListener('input',schedule);
-  if(linked)for(const id of ['linkDirection','linkGap','linkWidth','linkThickness'])$(id).addEventListener('input',schedule);
+  if(linked)for(const id of ['linkDirection','edgeRadius'])$(id).addEventListener('input',schedule);
   function makeFile(only){
     if(pending!==null){cancelAnimationFrame(pending);pending=null;}update();if(!models.length)throw Error($('capStatus').textContent);
     const s=settings(),letter=$('capName').value,objects=linked?linkedKeycapPrintObjects(linkedModel,s,colors,only):keycapPrintObjects(models[0],s,colors,letter,only),result=Bambu3MF.write({title:'Separate Keycap '+letter,objects});

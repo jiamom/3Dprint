@@ -1,5 +1,5 @@
 (() => {
-  const $=id=>document.getElementById(id),fonts=window.BAMBU_FONTS,canvas=$('capPreview'),ctx=canvas.getContext('2d'),viewer=new Keyring3D(canvas);
+  const $=id=>document.getElementById(id),fonts=window.BAMBU_FONTS.filter(f=>!f.name.startsWith('Nice Bounce')),canvas=$('capPreview'),ctx=canvas.getContext('2d'),viewer=new Keyring3D(canvas);
   const linked=document.body.dataset?.linked==='true';
   let linkedModel=null;
   let caps=[],font=null,models=[],pending=null,saving=false;const cache=new Map(),fontCache=new Map();
@@ -52,7 +52,7 @@
   for(const [symbol,label] of [['♥','하트'],['⚡','번개'],['★','별']]){const button=document.createElement('button');button.type='button';button.textContent=symbol;button.setAttribute('aria-label',label+' 선택');button.title=label;button.onclick=()=>chooseCharacter(symbol);$('symbolChoices').append(button);}
   function chooseCharacter(value){if(linked&&caps.length>=8){$('capStatus').textContent='글자와 도형은 최대 8개까지 넣을 수 있습니다.';return;}$('capName').value=linked?$('capName').value+value:value;syncName();}
   fonts.forEach((item,i)=>{const option=document.createElement('option');option.value=i;option.textContent=item.name.replace(' · 영문','');$('capFont').append(option);});
-  $('capFont').value=String(Math.max(0,fonts.findIndex(f=>linked?f.name==='배민 주아체':f.name.startsWith('Nice Bounce'))));
+  $('capFont').value=String(Math.max(0,fonts.findIndex(f=>f.name.startsWith('Subway Black'))));
   $('capName').addEventListener('input',syncName);$('capFont').addEventListener('change',chooseFont);
   if($('backspace'))$('backspace').onclick=()=>{$('capName').value=[...$('capName').value].slice(0,-1).join('');syncName();};
   $('resetName').onclick=()=>{$('capName').value='';syncName();};

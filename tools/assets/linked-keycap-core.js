@@ -48,17 +48,25 @@ function makeLinkedKeycaps(font,text,settings){
   caps.forEach(c=>linkedRoundLid(c,settings.size,radius,settings.roundCorners===false?0:edge));
   const centered=keycapMoveTree(outline,-cx,-cy),ring=keycapRing(centered,settings);
   if(ring){for(const key of ['tree','cutout','outer'])ring[key]=keycapMoveTree(ring[key],cx,cy);ring.center.x+=cx;ring.center.y+=cy;ring.z0=(settings.height-ring.thickness)/2;ring.z1=ring.z0+ring.thickness;}
-  const levels=[...new Set([...caps[0].layers.flatMap(l=>[l.z0,l.z1]),...(ring?[ring.z0,ring.z1]:[])])].sort((a,b)=>a-b),layers=[];
+  const seams=settings.withSeams!==false&&chars.length>1,centers=positions.slice(1).map((p,i)=>[(p[0]+positions[i][0])/2,(p[1]+positions[i][1])/2]),sidePaths=[],topPaths=[];
+  if(seams)for(const [x,y] of centers){
+    for(const sign of [-1,1])sidePaths.push(circlePath(vertical?sign*(settings.size/2+.35):x,vertical?y:sign*(settings.size/2+.35),.7,64));
+    topPaths.push(...pathsOf(keycapMoveTree(keycapRectangle(vertical?settings.size+2:.65,vertical?.65:settings.size+2),x,y)));
+  }
+  const sideCuts=clip(sidePaths),topCuts=clip(topPaths),seamStart=Math.max(.8,Math.min(edge,radius*.7)+.25),seamEnd=settings.height-seamStart,topStart=settings.height-.3;
+  const levels=[...new Set([...caps[0].layers.flatMap(l=>[l.z0,l.z1]),...(ring?[ring.z0,ring.z1]:[]),...(seams?[seamStart,seamEnd,topStart]:[])])].sort((a,b)=>a-b),layers=[];
   for(let i=0;i<levels.length-1;i++){
     const z0=levels[i],z1=levels[i+1],mid=(z0+z1)/2,voids=[];
     caps.forEach((c,j)=>{const layer=c.layers.find(l=>l.z0<=mid&&l.z1>=mid),full=keycapRoundedSquare(settings.size,radius),empty=keycapDifference(full,layer.tree);voids.push(...pathsOf(keycapMoveTree(empty,...positions[j])));});
+    if(seams&&mid>seamStart&&mid<seamEnd)voids.push(...pathsOf(sideCuts));
+    if(seams&&mid>topStart)voids.push(...pathsOf(topCuts));
     let tree=clip(pathsOf(outline),voids,ClipperLib.ClipType.ctDifference);
     if(ring&&mid>ring.z0&&mid<ring.z1)tree=clip([...pathsOf(tree),...pathsOf(ring.tree)]);
     layers.push({tree,z0,z1});
   }
   const body=linkedRoundSolid(layers,width,depth,radius,cx,cy,0,settings.height,settings.roundCorners===false?0:edge);
   for(const mesh of [body,...caps.map(c=>c.top)]){const r=manifoldReport(mesh);if(r.badEdges||r.degenerate)throw Error('둥근 일체형 몸체를 완성하지 못했습니다. 크기나 둥글기를 조절해 주세요.');}
-  return {body,caps,positions,outline:ring?clip([...pathsOf(outline),...pathsOf(ring.tree)]):outline,text:value,bridges:[],ring,height:caps[0].height,edgeRadius:radius?Math.min(edge,radius*.7):0,pitch};
+  return {body,caps,positions,outline:ring?clip([...pathsOf(outline),...pathsOf(ring.tree)]):outline,text:value,bridges:[],ring,seams:{enabled:seams,centers,topCuts:clip(pathsOf(topCuts),pathsOf(outline),ClipperLib.ClipType.ctIntersection),sideCuts,sideDepth:.35,topDepth:.3},height:caps[0].height,edgeRadius:radius?Math.min(edge,radius*.7):0,pitch};
 }
 function linkedKeycapPlacements(model,settings,mode){
   const assembled=mode==='assembled',bottom=keycapMeshBounds(model.body).y0-settings.size-8;

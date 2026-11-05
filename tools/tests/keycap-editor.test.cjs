@@ -95,3 +95,8 @@ test('linked menu appends symbols, saves one connected body plus individual lids
   const mail=e.context.mailBindings[0].generate();assert.equal(mail.sourceMenu,'연결형 키캡');assert(mail.filename.endsWith('_Parts.3mf'));
   e.ids.backspace.onclick();e.flush();assert.equal(e.ids.capName.value,'J♥');
 });
+
+
+test('linked body boundary groove option switches without changing the text',()=>{
+  const e=editor(true);assert.equal(e.ids.bodySeams.checked,true);assert.equal(e.ids.capDownload.disabled,false);e.ids.bodySeams.checked=false;e.ids.bodySeams.events.input();e.flush();assert.equal(e.ids.capName.value,'JIA');assert.equal(e.ids.capDownload.disabled,false);
+});

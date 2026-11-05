@@ -4,7 +4,7 @@
   let linkedModel=null;
   let caps=[],font=null,models=[],pending=null,saving=false;const cache=new Map(),fontCache=new Map();
   const colors=['#F22974','#FFDF31','#F22974'];
-  function settings(){return {direction:$('linkDirection')?.value||'horizontal',edgeRadius:Number($('edgeRadius')?.value??1.2),withRing:$('withRing').checked,ringAngle:Number($('ringAngle').value),ringHole:Number($('ringHole').value),ringWall:Number($('ringWall').value),ringThickness:Number($('ringThickness').value),size:Number($('capSize').value),height:Number($('capHeight').value),hole:0,switchFit:Number($('switchFit').value),roundCorners:$('roundCorners').checked,cornerRadius:Number($('cornerRadius').value),recessDepth:Number($('recessDepth').value),clearance:Number($('fitClearance').value)};}
+  function settings(){return {withSeams:$('bodySeams')?.checked??true,direction:$('linkDirection')?.value||'horizontal',edgeRadius:Number($('edgeRadius')?.value??1.2),withRing:$('withRing').checked,ringAngle:Number($('ringAngle').value),ringHole:Number($('ringHole').value),ringWall:Number($('ringWall').value),ringThickness:Number($('ringThickness').value),size:Number($('capSize').value),height:Number($('capHeight').value),hole:0,switchFit:Number($('switchFit').value),roundCorners:$('roundCorners').checked,cornerRadius:Number($('cornerRadius').value),recessDepth:Number($('recessDepth').value),clearance:Number($('fitClearance').value)};}
   function syncName(){
     const raw=$('capName').value,value=keycapNormalizeText(raw,linked?8:1);$('capName').value=value;
     caps=[...value].map(letter=>({letter,colors}));renderChoices();schedule();
@@ -31,7 +31,7 @@
     const m=linkedModel,s=settings(),mode=$('previewMode').value,parts=displayParts(models[0]),boxes=parts.map(p=>keycapMeshBounds(p.mesh)),xmin=Math.min(...boxes.map(b=>b.x0)),xmax=Math.max(...boxes.map(b=>b.x1)),ymin=Math.min(...boxes.map(b=>b.y0)),ymax=Math.max(...boxes.map(b=>b.y1)),scale=Math.min(850/(xmax-xmin+6),550/(ymax-ymin+6)),poses=linkedKeycapPlacements(m,s,mode);
     ctx.save();ctx.translate(500,350);ctx.scale(scale,-scale);ctx.translate(-(xmin+xmax)/2,-(ymin+ymax)/2);
     function fill(tree,color,pos=[0,0]){ctx.save();ctx.translate(pos[0],pos[1]);ctx.beginPath();for(const ring of pathsOf(tree)){ring.forEach((p,i)=>i?ctx.lineTo(p.X/UNIT,p.Y/UNIT):ctx.moveTo(p.X/UNIT,p.Y/UNIT));ctx.closePath();}ctx.fillStyle=color;ctx.fill('evenodd');ctx.restore();}
-    fill(m.outline,colors[0]);m.caps.forEach((c,i)=>{if(mode!=='assembled'){fill(c.cavity,'#59644d',m.positions[i]);fill(c.throat,'#94a188',m.positions[i]);}fill(c.topTree,colors[1],poses[i].lid);if(mode==='inside'){fill(c.skirtOuter,'#59644d',poses[i].lid);fill(c.skirtInner,colors[1],poses[i].lid);fill(c.stem,colors[1],poses[i].lid);fill(c.cross,'#59644d',poses[i].lid);}else fill(c.pocket,'#59644d',poses[i].lid);fill(c.text,colors[2],poses[i].letter);});ctx.restore();
+    fill(m.outline,colors[0]);if(m.seams?.enabled)fill(m.seams.topCuts,'#9b3152');m.caps.forEach((c,i)=>{if(mode!=='assembled'){fill(c.cavity,'#59644d',m.positions[i]);fill(c.throat,'#94a188',m.positions[i]);}fill(c.topTree,colors[1],poses[i].lid);if(mode==='inside'){fill(c.skirtOuter,'#59644d',poses[i].lid);fill(c.skirtInner,colors[1],poses[i].lid);fill(c.stem,colors[1],poses[i].lid);fill(c.cross,'#59644d',poses[i].lid);}else fill(c.pocket,'#59644d',poses[i].lid);fill(c.text,colors[2],poses[i].letter);});ctx.restore();
   }
   function enableDownloads(enabled){for(const id of ['capDownload','bodyDownload','lidDownload','letterDownload'])$(id).disabled=!enabled||saving;}
   function update(){
@@ -57,7 +57,7 @@
   $('resetName').onclick=()=>{$('capName').value='';syncName();};
   ['bodyColor','topColor','letterColor'].forEach((id,i)=>$(id).addEventListener('input',()=>{colors[i]=$(id).value;renderChoices();schedule();}));
   for(const id of ['capSize','capHeight','recessDepth','fitClearance','previewMode','roundCorners','cornerRadius','switchFit','withRing','ringAngle','ringHole','ringWall','ringThickness'])$(id).addEventListener('input',schedule);
-  if(linked)for(const id of ['linkDirection','edgeRadius'])$(id).addEventListener('input',schedule);
+  if(linked)for(const id of ['linkDirection','edgeRadius','bodySeams'])$(id).addEventListener('input',schedule);
   function makeFile(only){
     if(pending!==null){cancelAnimationFrame(pending);pending=null;}update();if(!models.length)throw Error($('capStatus').textContent);
     const s=settings(),letter=$('capName').value,objects=linked?linkedKeycapPrintObjects(linkedModel,s,colors,only):keycapPrintObjects(models[0],s,colors,letter,only),result=Bambu3MF.write({title:'Separate Keycap '+letter,objects});

@@ -31,3 +31,12 @@ test('joined cases have no gap or connector and have real curved top and bottom 
   })()`,ctx);
   assert.equal(result.pitch,20);assert.equal(result.width,62);assert.equal(result.bridges,0);assert.equal(result.separateLids,3);for(const k of ['fullHeightJoint','bottomRound','topRound','curvedSlices','lidRound'])assert.equal(result[k],true,k);
 });
+
+
+test('letter boundary grooves are shallow and optional while the body remains joined',()=>{
+  const result=vm.runInContext(`(()=>{
+    const s={size:22,height:18,cornerRadius:6,edgeRadius:1.2,withRing:false},a=makeLinkedKeycaps(font,'JIA',{...s,withSeams:true}),b=makeLinkedKeycaps(font,'JIA',{...s,withSeams:false});
+    function solid(mesh,x,y,z){const hits=[];for(const f of mesh.f){const[a,b,c]=f.map(i=>mesh.v[i]),den=(b[1]-c[1])*(a[0]-c[0])+(c[0]-b[0])*(a[1]-c[1]);if(Math.abs(den)<1e-10)continue;const u=((b[1]-c[1])*(x-c[0])+(c[0]-b[0])*(y-c[1]))/den,v=((c[1]-a[1])*(x-c[0])+(a[0]-c[0])*(y-c[1]))/den;if(u< -1e-8||v< -1e-8||u+v>1+1e-8)continue;const h=u*a[2]+v*b[2]+(1-u-v)*c[2];if(h>z+1e-7&&!hits.some(n=>Math.abs(n-h)<1e-6))hits.push(h);}return hits.length%2===1;}
+    return {count:a.seams.centers.length,off:!b.seams.enabled,sideGroove:!solid(a.body,10,10.8,9),smoothSide:solid(b.body,10,10.8,9),topGroove:!solid(a.body,10,0,17.9),smoothTop:solid(b.body,10,0,17.9),joined:solid(a.body,10,9.5,9),unchangedSocket:JSON.stringify(pathsOf(a.caps[0].cross))===JSON.stringify(pathsOf(b.caps[0].cross))};
+  })()`,ctx);assert.equal(result.count,2);for(const [k,v]of Object.entries(result))if(k!=='count')assert.equal(v,true,k);
+});

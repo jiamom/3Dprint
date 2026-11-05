@@ -10,9 +10,9 @@ function editor(linked=false){
   const body=node();body.dataset={linked:String(linked)};
   const ctx2d=new Proxy({},{get:()=>()=>{}});ids.capPreview.width=1000;ids.capPreview.height=700;ids.capPreview.getContext=()=>ctx2d;ids.capPreview.toDataURL=()=> 'data:image/png;base64,preview';
   const context={navigator:{userAgent:'node'},atob:s=>Buffer.from(s,'base64').toString('binary'),TextDecoder,TextEncoder,Uint8Array,ArrayBuffer,DataView,console,Blob,document:{getElementById:id=>ids[id],createElement:node,body},requestAnimationFrame:f=>{frames.set(++frameId,f);return frameId;},cancelAnimationFrame:id=>frames.delete(id),setTimeout:()=>0,URL:{createObjectURL:blob=>{lastBlob=blob;return 'blob:test';},revokeObjectURL(){}},savedRecords:[],mailBindings:[],KeyringRecords:{async save(record){context.savedRecords.push(record);return {...record,id:'saved'};}},KeyringMail:{attach(button,generate,status,saveButton){context.mailBindings.push({button,generate,status,saveButton});}},Keyring3D:class{constructor(){this.gl={};}setMeshes(parts){this.parts=parts;}clear(){}}};context.window=context;context.self=context;vm.createContext(context);
-  for(const name of ['clipper','earcut','fflate','opentype','mesh-utils','name-keyring-core','bambu-project-defaults','bambu-3mf','keycap-core','linked-keycap-core'])vm.runInContext(fs.readFileSync(path.join(root,'tools/assets/'+name+'.js'),'utf8'),context);
+  for(const name of ['clipper','earcut','fflate','opentype','mesh-utils','name-keyring-core','bambu-project-defaults','bambu-3mf','keycap-core','jd-body-core','linked-keycap-core'])vm.runInContext(fs.readFileSync(path.join(root,'tools/assets/'+name+'.js'),'utf8'),context);
   vm.runInContext(fs.readFileSync(path.join(root,'fonts/keyring-fonts.js'),'utf8'),context);
-  if(linked)vm.runInContext(fs.readFileSync(path.join(root,'fonts/keyring-font-08.js'),'utf8'),context);
+  if(linked){vm.runInContext(fs.readFileSync(path.join(root,'fonts/keyring-font-08.js'),'utf8'),context);vm.runInContext(fs.readFileSync(path.join(root,'tools/assets/jd-body-frill.js'),'utf8'),context);ids.bodyType.value='frill';}
   for(let i=12;i<=17;i++)vm.runInContext(fs.readFileSync(path.join(root,'fonts/keyring-font-'+i+'.js'),'utf8'),context);
   vm.runInContext(fs.readFileSync(path.join(root,'tools/assets/keycap-editor.js'),'utf8'),context);
   const flush=()=>{for(const [id,f]of [...frames]){frames.delete(id);f();}};flush();
@@ -88,15 +88,16 @@ test('heart lightning and star buttons replace a single glyph and produce printa
 test('linked menu appends symbols, saves one connected body plus individual lids and decorations, and keeps mail and records',async()=>{
   const e=editor(true);assert.equal(e.ids.capName.value,'JIA');assert.equal(e.ids.capCount.textContent,'3 CAP');assert.equal(e.ids.capDownload.disabled,false);
   e.ids.symbolChoices.children[0].onclick();e.flush();assert.equal(e.ids.capName.value,'JIA♥');
-  e.ids.capName.value='J♥A';e.ids.capName.events.input();e.flush();await e.ids.capDownload.onclick();assert.equal(e.filename,'Linked_Keycaps_J♥A_Parts.3mf');
+  e.ids.capName.value='J♥A';e.ids.capName.events.input();e.flush();await e.ids.capDownload.onclick();assert.equal(e.filename,'Linked_Keycaps_frill_J♥A_Parts.3mf');
   const files=e.context.fflate.unzipSync(new Uint8Array(await e.blob.arrayBuffer())),main=e.context.fflate.strFromU8(files['3D/3dmodel.model']);assert.equal((main.match(/<item /g)||[]).length,7);assert.equal(e.context.savedRecords.at(-1).sourceMenu,'연결형 키캡');assert.equal(e.context.savedRecords.at(-1).settings.linked,true);
-  e.ids.linkDirection.value='vertical';e.ids.linkDirection.events.input();e.flush();assert.equal(e.ids.capDownload.disabled,false);await e.ids.bodyDownload.onclick();assert.equal(e.filename,'Linked_Keycaps_J♥A_Body.3mf');
+  e.ids.linkDirection.value='vertical';e.ids.linkDirection.events.input();e.flush();assert.equal(e.ids.capDownload.disabled,false);await e.ids.bodyDownload.onclick();assert.equal(e.filename,'Linked_Keycaps_frill_J♥A_Body.3mf');
   const bodyFiles=e.context.fflate.unzipSync(new Uint8Array(await e.blob.arrayBuffer()));assert.equal((e.context.fflate.strFromU8(bodyFiles['3D/3dmodel.model']).match(/<item /g)||[]).length,1);
   const mail=e.context.mailBindings[0].generate();assert.equal(mail.sourceMenu,'연결형 키캡');assert(mail.filename.endsWith('_Parts.3mf'));
   e.ids.backspace.onclick();e.flush();assert.equal(e.ids.capName.value,'J♥');
 });
 
 
-test('linked body boundary groove option switches without changing the text',()=>{
-  const e=editor(true);assert.equal(e.ids.bodySeams.checked,true);assert.equal(e.ids.capDownload.disabled,false);e.ids.bodySeams.checked=false;e.ids.bodySeams.events.input();e.flush();assert.equal(e.ids.capName.value,'JIA');assert.equal(e.ids.capDownload.disabled,false);
+test('reference body type replaces the old body without changing the input',async()=>{
+  const e=editor(true);assert.equal(e.ids.bodyType.value,'frill');assert.equal(e.ids.capDownload.disabled,false);
+  vm.runInContext(fs.readFileSync(path.join(root,'tools/assets/jd-body-spiky.js'),'utf8'),e.context);e.ids.bodyType.value='spiky';await e.ids.bodyType.events.change();assert.equal(e.ids.capName.value,'JIA');assert.equal(e.ids.capDownload.disabled,false);await e.ids.bodyDownload.onclick();assert.equal(e.context.savedRecords.at(-1).settings.bodyType,'spiky');
 });

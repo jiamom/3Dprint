@@ -1,15 +1,16 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const root=path.join(__dirname,'../..');
-function editor(){
+function editor(linked=false){
   const ids={},frames=new Map();let frameId=0,lastBlob,filename;
   function node(){return {children:[],style:{},attrs:{},events:{},value:'',disabled:false,checked:false,textContent:'',append(...items){this.children.push(...items);},replaceChildren(){this.children=[];},setAttribute(k,v){this.attrs[k]=v;},addEventListener(k,f){this.events[k]=f;},click(){if(this.download)filename=this.download;else this.onclick?.();},remove(){}};}
-  const html=fs.readFileSync(path.join(root,'tools/Alphabet_Keycaps.html'),'utf8');
+  const html=fs.readFileSync(path.join(root,linked?'tools/Linked_Keycaps.html':'tools/Alphabet_Keycaps.html'),'utf8');
   for(const m of html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)){const el=ids[m[1]]=node();el.value=m[0].match(/\bvalue="([^"]*)"/)?.[1]||'';el.checked=/\bchecked\b/.test(m[0]);}
-  ids.previewMode.value='inside';
+  ids.previewMode.value=linked?'assembled':'inside';if(linked)ids.linkDirection.value='horizontal';
+  const body=node();body.dataset={linked:String(linked)};
   const ctx2d=new Proxy({},{get:()=>()=>{}});ids.capPreview.width=1000;ids.capPreview.height=700;ids.capPreview.getContext=()=>ctx2d;ids.capPreview.toDataURL=()=> 'data:image/png;base64,preview';
-  const context={navigator:{userAgent:'node'},atob:s=>Buffer.from(s,'base64').toString('binary'),TextDecoder,TextEncoder,Uint8Array,ArrayBuffer,DataView,console,Blob,document:{getElementById:id=>ids[id],createElement:node,body:node()},requestAnimationFrame:f=>{frames.set(++frameId,f);return frameId;},cancelAnimationFrame:id=>frames.delete(id),setTimeout:()=>0,URL:{createObjectURL:blob=>{lastBlob=blob;return 'blob:test';},revokeObjectURL(){}},savedRecords:[],mailBindings:[],KeyringRecords:{async save(record){context.savedRecords.push(record);return {...record,id:'saved'};}},KeyringMail:{attach(button,generate,status,saveButton){context.mailBindings.push({button,generate,status,saveButton});}},Keyring3D:class{constructor(){this.gl={};}setMeshes(parts){this.parts=parts;}clear(){}}};context.window=context;context.self=context;vm.createContext(context);
-  for(const name of ['clipper','earcut','fflate','opentype','mesh-utils','name-keyring-core','bambu-project-defaults','bambu-3mf','keycap-core'])vm.runInContext(fs.readFileSync(path.join(root,'tools/assets/'+name+'.js'),'utf8'),context);
+  const context={navigator:{userAgent:'node'},atob:s=>Buffer.from(s,'base64').toString('binary'),TextDecoder,TextEncoder,Uint8Array,ArrayBuffer,DataView,console,Blob,document:{getElementById:id=>ids[id],createElement:node,body},requestAnimationFrame:f=>{frames.set(++frameId,f);return frameId;},cancelAnimationFrame:id=>frames.delete(id),setTimeout:()=>0,URL:{createObjectURL:blob=>{lastBlob=blob;return 'blob:test';},revokeObjectURL(){}},savedRecords:[],mailBindings:[],KeyringRecords:{async save(record){context.savedRecords.push(record);return {...record,id:'saved'};}},KeyringMail:{attach(button,generate,status,saveButton){context.mailBindings.push({button,generate,status,saveButton});}},Keyring3D:class{constructor(){this.gl={};}setMeshes(parts){this.parts=parts;}clear(){}}};context.window=context;context.self=context;vm.createContext(context);
+  for(const name of ['clipper','earcut','fflate','opentype','mesh-utils','name-keyring-core','bambu-project-defaults','bambu-3mf','keycap-core','linked-keycap-core'])vm.runInContext(fs.readFileSync(path.join(root,'tools/assets/'+name+'.js'),'utf8'),context);
   vm.runInContext(fs.readFileSync(path.join(root,'fonts/keyring-fonts.js'),'utf8'),context);
   for(let i=12;i<=17;i++)vm.runInContext(fs.readFileSync(path.join(root,'fonts/keyring-font-'+i+'.js'),'utf8'),context);
   vm.runInContext(fs.readFileSync(path.join(root,'tools/assets/keycap-editor.js'),'utf8'),context);
@@ -74,4 +75,22 @@ test('mail generation always includes all parts and rejects invalid input; recor
   e.context.KeyringRecords.save=async()=>{throw Error('storage unavailable');};await e.ids.bodyDownload.onclick();
   assert.equal(e.filename,'Keycap_A_Body.3mf');assert.match(e.ids.capStatus.textContent,/추가하지 못했습니다/);assert.equal(e.ids.bodyDownload.disabled,false);
   e.ids.resetName.onclick();e.flush();assert.throws(()=>binding.generate(),/한 글자/);
+});
+
+
+test('heart lightning and star buttons replace a single glyph and produce printable 3MF',async()=>{
+  const e=editor();assert.equal(e.ids.symbolChoices.children.length,3);
+  for(const symbol of ['♥','⚡','★']){e.ids.symbolChoices.children.find(b=>b.textContent===symbol).onclick();e.flush();assert.equal(e.ids.capName.value,symbol);assert.equal(e.ids.capDownload.disabled,false);await e.ids.letterDownload.onclick();assert(e.blob.size>0);}
+  e.ids.capName.value='❤️';e.ids.capName.events.input();e.flush();assert.equal(e.ids.capName.value,'♥');
+});
+
+test('linked menu appends symbols, saves one connected body plus individual lids and decorations, and keeps mail and records',async()=>{
+  const e=editor(true);assert.equal(e.ids.capName.value,'JIA');assert.equal(e.ids.capCount.textContent,'3 CAP');assert.equal(e.ids.capDownload.disabled,false);
+  e.ids.symbolChoices.children[0].onclick();e.flush();assert.equal(e.ids.capName.value,'JIA♥');
+  e.ids.capName.value='J♥A';e.ids.capName.events.input();e.flush();await e.ids.capDownload.onclick();assert.equal(e.filename,'Linked_Keycaps_J♥A_Parts.3mf');
+  const files=e.context.fflate.unzipSync(new Uint8Array(await e.blob.arrayBuffer())),main=e.context.fflate.strFromU8(files['3D/3dmodel.model']);assert.equal((main.match(/<item /g)||[]).length,7);assert.equal(e.context.savedRecords.at(-1).sourceMenu,'연결형 키캡');assert.equal(e.context.savedRecords.at(-1).settings.linked,true);
+  e.ids.linkDirection.value='vertical';e.ids.linkDirection.events.input();e.flush();assert.equal(e.ids.capDownload.disabled,false);await e.ids.bodyDownload.onclick();assert.equal(e.filename,'Linked_Keycaps_J♥A_Body.3mf');
+  const bodyFiles=e.context.fflate.unzipSync(new Uint8Array(await e.blob.arrayBuffer()));assert.equal((e.context.fflate.strFromU8(bodyFiles['3D/3dmodel.model']).match(/<item /g)||[]).length,1);
+  const mail=e.context.mailBindings[0].generate();assert.equal(mail.sourceMenu,'연결형 키캡');assert(mail.filename.endsWith('_Parts.3mf'));
+  e.ids.backspace.onclick();e.flush();assert.equal(e.ids.capName.value,'J♥');
 });

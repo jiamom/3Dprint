@@ -3,3 +3,5 @@
 .alphabet button[aria-pressed=true]{background:#355c3d;color:white;border-color:#355c3d}
 
 .part-downloads{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+
+.symbol-choices{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 15px}.symbol-choices button{font-size:26px;color:#d73470;background:#fff3f7;padding:10px}.symbol-choices button[aria-pressed=true]{background:#f9c9db;border-color:#d73470}

@@ -98,7 +98,17 @@ function keycapSwitchBody(size,height,radius,fit=0,settings={}){
       return sections;
     });
   }
-  return {body:keycapLayers(layers),outline:ring?clip([...pathsOf(outline),...pathsOf(ring.tree)]):outline,cavity,mount,throat,ring};
+  return {layers,body:keycapLayers(layers),outline:ring?clip([...pathsOf(outline),...pathsOf(ring.tree)]):outline,cavity,mount,throat,ring};
+}
+function keycapNormalizeText(value,max=1){return [...String(value).toUpperCase().replace(/[❤♡]/g,'♥').replace(/⭐/g,'★').replace(/[^A-Z0-9♥⚡★]/g,'')].slice(0,max).join('');}
+function keycapSymbol(letter,height){
+  let points=[];
+  if(letter==='♥')for(let i=0;i<120;i++){const t=i*Math.PI/60;points.push([16*Math.sin(t)**3,13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t)]);}
+  else if(letter==='⚡')points=[[1,7],[-5,-1],[-1,-1],[-3,-7],[5,2],[1,2]];
+  else if(letter==='★')for(let i=0;i<10;i++){const a=Math.PI/2+i*Math.PI/5,r=i%2?2.5:5.8;points.push([r*Math.cos(a),r*Math.sin(a)]);}
+  else return null;
+  const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]),x=(Math.min(...xs)+Math.max(...xs))/2,y=(Math.min(...ys)+Math.max(...ys))/2,scale=height/(Math.max(...ys)-Math.min(...ys));
+  return clip(intPaths([points.map(p=>[(p[0]-x)*scale,(p[1]-y)*scale])]));
 }
 function makeKeycap(font,letter,settings) {
   const {size,height}=settings,topSize=size-3,lidThickness=2.4,depth=settings.recessDepth??.6,clearance=settings.clearance??.15,letterThickness=1.4,fit=settings.switchFit??0;
@@ -106,7 +116,7 @@ function makeKeycap(font,letter,settings) {
   const radius=settings.roundCorners===false?0:Math.min(settings.cornerRadius??3.5,size/2),topRadius=Math.max(0,radius-1.5);
   if(!Number.isFinite(radius)||radius<0)throw Error('모서리 둥글기를 확인해 주세요.');
   if(depth<.2||depth>1.2||clearance<.05||clearance>.4||fit<0||fit>.2)throw Error('홈 깊이와 조립 여유를 확인해 주세요.');
-  let text=textContours(font,letter,size*.55,'center',0,0);
+  let text=keycapSymbol(letter,size*.55)||textContours(font,letter,size*.55,'center',0,0);
   const b=boundsOf(pathsOf(text)),ratio=Math.min(1,(topSize-3)/b.width,(topSize-3)/b.height);
   if(ratio<1)text=clip(pathsOf(text).map(p=>p.map(q=>({X:Math.round(q.X*ratio),Y:Math.round(q.Y*ratio)}))));
   const pocket=keycapOffset(text,clearance),topTree=keycapRoundedSquare(topSize,topRadius);

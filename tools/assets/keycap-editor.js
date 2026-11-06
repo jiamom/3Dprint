@@ -4,6 +4,18 @@
   let linkedModel=null;
   let caps=[],font=null,models=[],pending=null,saving=false;const cache=new Map(),fontCache=new Map();
   const colors=['#F22974','#FFDF31','#F22974'];
+  const filamentColors=window.BambuFilamentColors||[],partLabels=['몸통','뚜껑','글씨'];let colorTarget=0;
+  function renderFilamentPalette(){
+    if(!$('filamentSwatches'))return;
+    for(const [i,button]of [...$('filamentTargets').children].entries())button.setAttribute('aria-pressed',String(i===colorTarget));
+    $('filamentSwatches').replaceChildren();
+    for(const item of filamentColors.filter(c=>c.type===$('filamentFamily').value)){
+      const button=document.createElement('button');button.type='button';button.style.setProperty('--filament-color',item.hex);button.title=item.type+' · '+item.name+' ('+item.code+') · '+item.hex;button.setAttribute('aria-label',button.title);button.setAttribute('aria-pressed',String(item.hex===colors[colorTarget].toUpperCase()));
+      button.onclick=()=>{colors[colorTarget]=item.hex;renderChoices();schedule();};$('filamentSwatches').append(button);
+    }
+    const hex=colors[colorTarget].toUpperCase(),item=filamentColors.find(c=>c.type===$('filamentFamily').value&&c.hex===hex);
+    $('filamentSelection').textContent=partLabels[colorTarget]+' · '+(item?item.name+' ('+item.code+')':'직접 지정')+' · '+hex;
+  }
   function settings(){return {bodyThickness:Number($('bodyThickness')?.value??2.4),glyphThickness:Number($('glyphThickness')?.value??2.8),glyphRound:Number($('glyphRound')?.value??1.2),bodyType:$('bodyType')?.value||'frill',direction:$('linkDirection')?.value||'horizontal',edgeRadius:Number($('edgeRadius')?.value??1.2),withRing:$('withRing').checked,ringAngle:Number($('ringAngle').value),ringHole:Number($('ringHole').value),ringWall:Number($('ringWall').value),ringThickness:Number($('ringThickness').value),size:linked?22:Number($('capSize').value),height:Number($('capHeight').value),hole:0,switchFit:Number($('switchFit').value),roundCorners:$('roundCorners').checked,cornerRadius:Number($('cornerRadius').value),recessDepth:Number($('recessDepth').value),clearance:Number($('fitClearance').value)};}
   function syncName(){
     const raw=$('capName').value,value=keycapNormalizeText(raw,linked?8:1);$('capName').value=value;
@@ -12,6 +24,7 @@
   function renderChoices(){
     for(const button of [...$('alphabet').children,...$('symbolChoices').children])button.setAttribute('aria-pressed',String(button.textContent===$('capName').value));
     ['bodyColor','topColor','letterColor'].forEach((id,i)=>{$(id).value=colors[i];});
+    renderFilamentPalette();
   }
   function schedule(){if(pending!==null)cancelAnimationFrame(pending);pending=requestAnimationFrame(update);}
   function displayParts(m){
@@ -56,7 +69,12 @@
   $('capName').addEventListener('input',syncName);$('capFont').addEventListener('change',chooseFont);
   if($('backspace'))$('backspace').onclick=()=>{$('capName').value=[...$('capName').value].slice(0,-1).join('');syncName();};
   $('resetName').onclick=()=>{$('capName').value='';syncName();};
-  ['bodyColor','topColor','letterColor'].forEach((id,i)=>$(id).addEventListener('input',()=>{colors[i]=$(id).value;renderChoices();schedule();}));
+  if($('filamentFamily')){
+    for(const name of [...new Set(filamentColors.map(c=>c.type))]){const option=document.createElement('option');option.value=name;option.textContent=name;$('filamentFamily').append(option);}$('filamentFamily').value='PLA Basic';
+    partLabels.forEach((label,i)=>{const button=document.createElement('button');button.type='button';button.textContent=label;button.onclick=()=>{colorTarget=i;renderFilamentPalette();};$('filamentTargets').append(button);});
+    $('filamentFamily').addEventListener('change',renderFilamentPalette);
+  }
+  ['bodyColor','topColor','letterColor'].forEach((id,i)=>$(id).addEventListener('input',()=>{colorTarget=i;colors[i]=$(id).value;renderChoices();schedule();}));
   for(const id of ['capSize','capHeight','recessDepth','fitClearance','previewMode','roundCorners','cornerRadius','switchFit','withRing','ringAngle','ringHole','ringWall','ringThickness','glyphThickness','glyphRound','bodyThickness'])$(id).addEventListener('input',schedule);
   if(linked)for(const id of ['linkDirection','edgeRadius'])$(id).addEventListener('input',schedule);
   const bodyLoads=new Map();

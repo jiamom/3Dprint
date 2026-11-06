@@ -3,14 +3,14 @@ const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const root=path.join(__dirname,'../..');
 function editor(linked=false){
   const ids={},frames=new Map();let frameId=0,lastBlob,filename;
-  function node(){return {children:[],style:{},attrs:{},events:{},value:'',disabled:false,checked:false,textContent:'',append(...items){this.children.push(...items);},replaceChildren(){this.children=[];},setAttribute(k,v){this.attrs[k]=v;},addEventListener(k,f){this.events[k]=f;},click(){if(this.download)filename=this.download;else this.onclick?.();},remove(){}};}
+  function node(){return {children:[],style:{setProperty(k,v){this[k]=v;}},attrs:{},events:{},value:'',disabled:false,checked:false,textContent:'',append(...items){this.children.push(...items);},replaceChildren(){this.children=[];},setAttribute(k,v){this.attrs[k]=v;},addEventListener(k,f){this.events[k]=f;},click(){if(this.download)filename=this.download;else this.onclick?.();},remove(){}};}
   const html=fs.readFileSync(path.join(root,linked?'tools/Linked_Keycaps.html':'tools/Alphabet_Keycaps.html'),'utf8');
   for(const m of html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)){const el=ids[m[1]]=node();el.value=m[0].match(/\bvalue="([^"]*)"/)?.[1]||'';el.checked=/\bchecked\b/.test(m[0]);}
   ids.previewMode.value=linked?'assembled':'inside';if(linked)ids.linkDirection.value='horizontal';
   const body=node();body.dataset={linked:String(linked)};
   const ctx2d=new Proxy({},{get:()=>()=>{}});ids.capPreview.width=1000;ids.capPreview.height=700;ids.capPreview.getContext=()=>ctx2d;ids.capPreview.toDataURL=()=> 'data:image/png;base64,preview';
   const context={navigator:{userAgent:'node'},atob:s=>Buffer.from(s,'base64').toString('binary'),TextDecoder,TextEncoder,Uint8Array,ArrayBuffer,DataView,console,Blob,document:{getElementById:id=>ids[id],createElement:node,body},requestAnimationFrame:f=>{frames.set(++frameId,f);return frameId;},cancelAnimationFrame:id=>frames.delete(id),setTimeout:()=>0,URL:{createObjectURL:blob=>{lastBlob=blob;return 'blob:test';},revokeObjectURL(){}},savedRecords:[],mailBindings:[],KeyringRecords:{async save(record){context.savedRecords.push(record);return {...record,id:'saved'};}},KeyringMail:{attach(button,generate,status,saveButton){context.mailBindings.push({button,generate,status,saveButton});}},Keyring3D:class{constructor(){this.gl={};}setMeshes(parts){this.parts=parts;}clear(){}}};context.window=context;context.self=context;vm.createContext(context);
-  for(const name of ['clipper','earcut','fflate','opentype','mesh-utils','name-keyring-core','bambu-project-defaults','bambu-3mf','keycap-core','jd-body-core','linked-keycap-core'])vm.runInContext(fs.readFileSync(path.join(root,'tools/assets/'+name+'.js'),'utf8'),context);
+  for(const name of ['clipper','earcut','fflate','opentype','mesh-utils','name-keyring-core','bambu-project-defaults','bambu-3mf','keycap-core','jd-body-core','linked-keycap-core','bambu-filament-colors'])vm.runInContext(fs.readFileSync(path.join(root,'tools/assets/'+name+'.js'),'utf8'),context);
   vm.runInContext(fs.readFileSync(path.join(root,'fonts/keyring-fonts.js'),'utf8'),context);
   if(linked){vm.runInContext(fs.readFileSync(path.join(root,'fonts/keyring-font-08.js'),'utf8'),context);vm.runInContext(fs.readFileSync(path.join(root,'tools/assets/jd-body-frill.js'),'utf8'),context);ids.bodyType.value='frill';}
   for(let i=12;i<=17;i++)vm.runInContext(fs.readFileSync(path.join(root,'fonts/keyring-font-'+i+'.js'),'utf8'),context);
@@ -114,4 +114,16 @@ test('plain body selection loads without another asset and wall thickness reache
   e.ids.bodyThickness.value='4';e.ids.bodyThickness.events.input();e.flush();await e.ids.bodyDownload.onclick();
   assert.equal(e.context.savedRecords.at(-1).settings.bodyThickness,4);assert.equal(e.context.savedRecords.at(-1).settings.bodyType,'plain');assert.equal(e.filename,'Linked_Keycaps_plain_JIA_Body.3mf');
   e.ids.bodyThickness.value='1';e.ids.bodyThickness.events.input();e.flush();assert.equal(e.ids.capDownload.disabled,true);
+});
+
+
+test('Bambu swatches apply independently to each part and save the official hex codes',async()=>{
+  const e=editor();assert(e.ids.filamentSwatches.children.length>=25);assert.equal(e.ids.filamentTargets.children.length,3);
+  const chosen=['#FFFFFF','#C12E1F','#0086D6'];
+  for(let i=0;i<3;i++){
+    e.ids.filamentTargets.children[i].onclick();const swatch=e.ids.filamentSwatches.children.find(b=>b.title.endsWith(chosen[i]));assert(swatch);swatch.onclick();e.flush();
+    assert.equal(e.ids[['bodyColor','topColor','letterColor'][i]].value,chosen[i]);assert(e.ids.filamentSelection.textContent.includes(chosen[i]));assert.equal(e.ids.filamentSwatches.children.filter(b=>b.attrs['aria-pressed']==='true').length,1);
+  }
+  e.ids.filamentFamily.value='PLA Matte';e.ids.filamentFamily.events.change();assert(e.ids.filamentSwatches.children.length>=20);assert.equal(e.ids.bodyColor.value,chosen[0]);
+  await e.ids.capDownload.onclick();const files=e.context.fflate.unzipSync(new Uint8Array(await e.blob.arrayBuffer())),p=JSON.parse(e.context.fflate.strFromU8(files['Metadata/project_settings.config']));assert.deepEqual(p.filament_colour,chosen);
 });

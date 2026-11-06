@@ -65,7 +65,7 @@
     if(!bodyLoads.has(type))bodyLoads.set(type,new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='assets/jd-body-'+type+'.js?v=jd-bodies-16';script.onload=resolve;script.onerror=()=>{bodyLoads.delete(type);reject(Error('몸체 파일을 불러오지 못했습니다. 다시 선택해 주세요.'));};document.body.append(script);}));
     await bodyLoads.get(type);
   }
-  if(linked)$('bodyType').addEventListener('change',async()=>{const type=$('bodyType').value;enableDownloads(false);$('capStatus').textContent='선택한 JDloves3d 몸체를 불러오고 있습니다…';try{await ensureBody(type);if($('bodyType').value===type)update();}catch(error){if($('bodyType').value===type)$('capStatus').textContent=error.message;}});
+  if(linked)$('bodyType').addEventListener('change',async()=>{const type=$('bodyType').value;$('bodyThickness').min=type==='frill'?'1.6':'2';$('bodyThickness').value=type==='frill'?'1.8':'2.4';enableDownloads(false);$('capStatus').textContent='선택한 JDloves3d 몸체를 불러오고 있습니다…';try{await ensureBody(type);if($('bodyType').value===type)update();}catch(error){if($('bodyType').value===type)$('capStatus').textContent=error.message;}});
   function makeFile(only){
     if(pending!==null){cancelAnimationFrame(pending);pending=null;}update();if(!models.length)throw Error($('capStatus').textContent);
     const s=settings(),letter=$('capName').value,objects=linked?linkedKeycapPrintObjects(linkedModel,s,colors,only):keycapPrintObjects(models[0],s,colors,letter,only),result=Bambu3MF.write({title:(linked?linkedModel.author+' '+linkedModel.bodyLabel+' · ':'Separate Keycap ')+letter,objects});

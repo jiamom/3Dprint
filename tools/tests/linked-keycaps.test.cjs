@@ -44,3 +44,12 @@ test('plain bodies follow the input count and wall thickness preserves switch an
     assert.equal(r.bad,0,kind);for(const k of ['grows','mountOpen','upperOpen','floor','sameLid'])assert.equal(r[k],true,kind+':'+k);
   }
 });
+
+
+test('frill starts thinner at 1.8 mm while its switch cavity stays fixed',()=>{
+  for(const count of [1,3,8]){
+    ctx.count=count;
+    const r=vm.runInContext(`(()=>{const s={height:18,withRing:false},a=jdMakeBody('frill',count,s),b=jdMakeBody('frill',count,{...s,bodyThickness:2.4}),thin=jdMakeBody('frill',count,{...s,bodyThickness:1.6}),explicit=jdMakeBody('frill',count,{...s,bodyThickness:1.8}),last=(count-1)*a.pitch;return {bad:manifoldReport(thin.body).badEdges,defaultMatches:JSON.stringify(a.body)===JSON.stringify(explicit.body),smaller:keycapMeshBounds(b.body).height-keycapMeshBounds(a.body).height,insideFixed:b.body.v.every((v,i)=>Math.abs(v[1])>8.6||v[0]<-8.6||v[0]>last+8.6||JSON.stringify(v)===JSON.stringify(a.body.v[i]))};})()`,ctx);
+    assert.equal(r.bad,0);assert(r.defaultMatches);assert(Math.abs(r.smaller-1.2)<.001);assert(r.insideFixed);
+  }
+});

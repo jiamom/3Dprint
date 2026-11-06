@@ -84,8 +84,8 @@ function keycapRing(outline,settings={}){
   return {center,hole,wall,thickness,tree:keycapDifference(outer,cutout),cutout,outer};
 }
 function keycapWallThickness(settings){
-  const value=settings.bodyThickness??2.4;
-  if(!Number.isFinite(value)||value<2||value>5)throw Error('몸체 벽 두께는 2~5mm로 설정해 주세요.');
+  const minimum=settings.bodyType==='frill'?1.6:2,value=settings.bodyThickness??(settings.bodyType==='frill'?1.8:2.4);
+  if(!Number.isFinite(value)||value<minimum||value>5)throw Error('몸체 벽 두께는 '+minimum+'~5mm로 설정해 주세요.');
   return value;
 }
 function keycapSwitchBody(size,height,radius,fit=0,settings={}){

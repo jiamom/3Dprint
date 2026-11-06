@@ -19,7 +19,7 @@ function jdOnRoundedRectangle(x,y,width,depth,radius){
 }
 function jdMakeBody(type,count,settings){
   if(type==='plain')return jdPlainBody(count,settings);
-  const thickness=keycapWallThickness(settings),delta=thickness-2.4;
+  const thickness=keycapWallThickness({...settings,bodyType:type}),delta=thickness-2.4;
   const {definition,mesh}=jdBodyTemplate(type,count),pitch=definition.pitch,shift=(count-1)*pitch/2,lift=settings.height-definition.baseHeight,fit=settings.switchFit??0,m=KEYCAP_SWITCH,vertical=settings.direction==='vertical';
   const v=mesh.v.map(p=>{
     let x=p[0]+shift,y=p[1],z=p[2],cx=Math.max(0,Math.min(count-1,Math.round(x/pitch)))*pitch,lx=x-cx;

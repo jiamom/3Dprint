@@ -30,3 +30,17 @@ test('actual reference meshes keep standard mounting clearances after rebuilding
   vm.runInContext(`function jdTestSolid(mesh,x,y,z){const hits=[];for(const f of mesh.f){const[a,b,c]=f.map(i=>mesh.v[i]),den=(b[1]-c[1])*(a[0]-c[0])+(c[0]-b[0])*(a[1]-c[1]);if(Math.abs(den)<1e-10)continue;const u=((b[1]-c[1])*(x-c[0])+(c[0]-b[0])*(y-c[1]))/den,v=((c[1]-a[1])*(x-c[0])+(a[0]-c[0])*(y-c[1]))/den;if(u< -1e-8||v< -1e-8||u+v>1+1e-8)continue;const h=u*a[2]+v*b[2]+(1-u-v)*c[2];if(h>z+1e-7&&!hits.some(n=>Math.abs(n-h)<1e-6))hits.push(h);}return hits.length%2===1;}`,ctx);
   for(const kind of ['frill','spiky','pebble']){ctx.kind=kind;const r=vm.runInContext(`(()=>{const s={size:22,height:18,bodyType:kind,withRing:false},m=makeLinkedKeycaps(font,'JIA',s).body;return {floor:jdTestSolid(m,.013,.031,1),lowerVoid:!jdTestSolid(m,7.72,.031,3),lowerWall:jdTestSolid(m,7.85,.031,3),shoulderVoid:!jdTestSolid(m,6.9,.031,9.1),shoulderWall:jdTestSolid(m,7.02,.031,9.1),topVoid:!jdTestSolid(m,8.55,.031,12),topWall:jdTestSolid(m,8.65,.031,12)}})()`,ctx);for(const [key,value]of Object.entries(r))assert.equal(value,true,kind+':'+key);}
 });
+
+
+test('plain bodies follow the input count and wall thickness preserves switch and lid fit',()=>{
+  for(const [value,direction]of [['J','horizontal'],['JIA','horizontal'],['JIA12345','vertical']]){
+    ctx.value=value;ctx.direction=direction;
+    const r=vm.runInContext(`(()=>{const m=makeLinkedKeycaps(font,value,{size:22,height:18,bodyType:'plain',bodyThickness:3.2,direction,withRing:true});return {count:m.caps.length,bad:manifoldReport(m.body).badEdges,ring:manifoldReport(m.ring.mesh).badEdges};})()`,ctx);
+    assert.equal(r.count,value.length);assert.equal(r.bad,0);assert.equal(r.ring,0);
+  }
+  for(const kind of ['plain','frill','spiky','pebble']){
+    ctx.kind=kind;
+    const r=vm.runInContext(`(()=>{const s={size:22,height:18,bodyType:kind,withRing:false},a=makeLinkedKeycaps(font,'JIA',{...s,bodyThickness:2}),b=makeLinkedKeycaps(font,'JIA',{...s,bodyThickness:5}),ba=keycapMeshBounds(a.body),bb=keycapMeshBounds(b.body);return {bad:manifoldReport(b.body).badEdges,grows:bb.width>ba.width+5.9&&bb.height>ba.height+5.9,mountOpen:!jdTestSolid(b.body,.1,.2,6),upperOpen:!jdTestSolid(b.body,.1,.2,17),floor:jdTestSolid(b.body,.1,.2,1),sameLid:JSON.stringify(a.caps[0].top)===JSON.stringify(b.caps[0].top)};})()`,ctx);
+    assert.equal(r.bad,0,kind);for(const k of ['grows','mountOpen','upperOpen','floor','sameLid'])assert.equal(r[k],true,kind+':'+k);
+  }
+});

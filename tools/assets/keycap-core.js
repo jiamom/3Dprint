@@ -83,9 +83,15 @@ function keycapRing(outline,settings={}){
   const center=keycapPerimeterPoint(keycapOffset(outline,hole/2+.8),angle),outer=clip([circlePath(center.x,center.y,hole/2+wall,80)]),cutout=clip([circlePath(center.x,center.y,hole/2,80)]);
   return {center,hole,wall,thickness,tree:keycapDifference(outer,cutout),cutout,outer};
 }
+function keycapWallThickness(settings){
+  const value=settings.bodyThickness??2.4;
+  if(!Number.isFinite(value)||value<2||value>5)throw Error('몸체 벽 두께는 2~5mm로 설정해 주세요.');
+  return value;
+}
 function keycapSwitchBody(size,height,radius,fit=0,settings={}){
   if(size<22)throw Error('스위치 장착 공간을 위해 한 변을 최소 22mm 이상으로 설정해 주세요.');
-  const m=KEYCAP_SWITCH,lift=height-m.sampleHeight,outline=keycapRoundedSquare(size,radius),mount=keycapRectangle(m.mountWidth+2*fit,m.mountDepth+2*fit,1.5),throat=keycapRectangle(m.throatWidth+2*fit,m.throatDepth+2*fit),cavity=keycapRoundedSquare(size-4.8,Math.max(0,radius-2.4));
+  const delta=keycapWallThickness(settings)-2.4;
+  const m=KEYCAP_SWITCH,lift=height-m.sampleHeight,outline=keycapRoundedSquare(size+2*delta,radius?Math.max(.1,radius+delta):0),mount=keycapRectangle(m.mountWidth+2*fit,m.mountDepth+2*fit,1.5),throat=keycapRectangle(m.throatWidth+2*fit,m.throatDepth+2*fit),cavity=keycapRoundedSquare(size-4.8,Math.max(0,radius-2.4));
   let layers=[{tree:outline,z0:0,z1:m.floor+lift},{tree:keycapDifference(outline,mount),z0:m.floor+lift,z1:m.shoulder+lift},{tree:keycapDifference(outline,throat),z0:m.shoulder+lift,z1:m.cavityStart+lift},{tree:keycapDifference(outline,cavity),z0:m.cavityStart+lift,z1:height}];
   const ring=keycapRing(outline,settings);
   if(ring){

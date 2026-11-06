@@ -18,6 +18,8 @@ function jdOnRoundedRectangle(x,y,width,depth,radius){
   return Math.abs(Math.hypot(Math.max(dx,0),Math.max(dy,0))+Math.min(Math.max(dx,dy),0)-radius)<.001;
 }
 function jdMakeBody(type,count,settings){
+  if(type==='plain')return jdPlainBody(count,settings);
+  const thickness=keycapWallThickness(settings),delta=thickness-2.4;
   const {definition,mesh}=jdBodyTemplate(type,count),pitch=definition.pitch,shift=(count-1)*pitch/2,lift=settings.height-definition.baseHeight,fit=settings.switchFit??0,m=KEYCAP_SWITCH,vertical=settings.direction==='vertical';
   const v=mesh.v.map(p=>{
     let x=p[0]+shift,y=p[1],z=p[2],cx=Math.max(0,Math.min(count-1,Math.round(x/pitch)))*pitch,lx=x-cx;
@@ -27,9 +29,21 @@ function jdMakeBody(type,count,settings){
         if(z>=z0-.001&&z<=z1+.001&&jdOnRoundedRectangle(lx,y,w,d,r)){x+=fit*lx/(w/2);y+=fit*y/(d/2);break;}
       }
     }
+    // Move only material outside the fixed 17.2 mm switch cavity.
+    const end=x<0?x:x>(count-1)*pitch?x-(count-1)*pitch:0;
+    x+=Math.sign(end)*delta*Math.max(0,Math.min(1,(Math.abs(end)-8.6)/2.4));
+    y+=Math.sign(y)*delta*Math.max(0,Math.min(1,(Math.abs(y)-8.6)/2.4));
     z+=lift*Math.max(0,Math.min(1,z));return vertical?[y,-x,z]:[x,y,z];
   });
   return {body:{v,f:mesh.f},pitch,definition};
+}
+function jdPlainBody(count,settings){
+  const thickness=keycapWallThickness(settings),pitch=21.6,delta=thickness-2.4,m=KEYCAP_SWITCH,lift=settings.height-m.sampleHeight,fit=settings.switchFit??0;
+  const repeat=tree=>clip(Array.from({length:count},(_,i)=>pathsOf(keycapMoveTree(tree,i*pitch,0))).flat());
+  const outline=repeat(keycapRoundedSquare(22+2*delta,4+delta)),mount=repeat(keycapRectangle(m.mountWidth+2*fit,m.mountDepth+2*fit,1.5)),throat=repeat(keycapRectangle(m.throatWidth+2*fit,m.throatDepth+2*fit)),cavity=repeat(keycapRoundedSquare(17.2,1.6));
+  const layers=[{tree:outline,z0:0,z1:m.floor+lift},{tree:keycapDifference(outline,mount),z0:m.floor+lift,z1:m.shoulder+lift},{tree:keycapDifference(outline,throat),z0:m.shoulder+lift,z1:m.cavityStart+lift},{tree:keycapDifference(outline,cavity),z0:m.cavityStart+lift,z1:settings.height}];
+  const body=keycapLayers(layers);if(settings.direction==='vertical')body.v=body.v.map(([x,y,z])=>[y,-x,z]);
+  return {body,pitch,definition:{label:'기본 · 무늬 없음',author:'Bambu keycap maker'}};
 }
 function jdMakeRing(body,positions,settings){
   if(!settings.withRing)return null;

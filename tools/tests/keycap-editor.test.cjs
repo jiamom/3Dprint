@@ -107,3 +107,11 @@ test('glyph height and crown rounding options reach saved 3MF decoration geometr
   const e=editor();e.ids.symbolChoices.children[0].onclick();e.ids.glyphThickness.value='3.5';e.ids.glyphRound.value='1.8';e.ids.glyphThickness.events.input();e.flush();await e.ids.letterDownload.onclick();const f=e.context.fflate.unzipSync(new Uint8Array(await e.blob.arrayBuffer())),xml=e.context.fflate.strFromU8(f['3D/Objects/object_1.model']),z=[...xml.matchAll(/ z="([^"]+)"/g)].map(m=>Number(m[1]));assert.equal(Math.max(...z),3.5);assert(new Set(z).size>10);assert.equal(e.context.savedRecords.at(-1).settings.glyphThickness,3.5);
   e.ids.glyphRound.value='0';e.ids.glyphRound.events.input();e.flush();await e.ids.letterDownload.onclick();const ff=e.context.fflate.unzipSync(new Uint8Array(await e.blob.arrayBuffer())),flat=e.context.fflate.strFromU8(ff['3D/Objects/object_1.model']);assert.equal(new Set([...flat.matchAll(/ z="([^"]+)"/g)].map(m=>Number(m[1]))).size,2);
 });
+
+
+test('plain body selection loads without another asset and wall thickness reaches saved settings',async()=>{
+  const e=editor(true);e.ids.bodyType.value='plain';await e.ids.bodyType.events.change();assert.equal(e.ids.capDownload.disabled,false);
+  e.ids.bodyThickness.value='4';e.ids.bodyThickness.events.input();e.flush();await e.ids.bodyDownload.onclick();
+  assert.equal(e.context.savedRecords.at(-1).settings.bodyThickness,4);assert.equal(e.context.savedRecords.at(-1).settings.bodyType,'plain');assert.equal(e.filename,'Linked_Keycaps_plain_JIA_Body.3mf');
+  e.ids.bodyThickness.value='1';e.ids.bodyThickness.events.input();e.flush();assert.equal(e.ids.capDownload.disabled,true);
+});

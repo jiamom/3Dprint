@@ -15,7 +15,7 @@
 
   function refreshButtons() {
     $('savePuzzle').disabled = $('saveFrame').disabled = busy || !current;
-    zoomControl.disabled = $('resetFraming').disabled = !photo;
+    zoomControl.disabled = $('fitPhoto').disabled = $('resetFraming').disabled = !photo;
   }
 
   function heightField() {
@@ -72,15 +72,14 @@
     if (!photo) return;
     const option = $('orientation').value;
     const layout = PhotoPuzzle.layout(option === 'landscape' || (option === 'auto' && photo.width >= photo.height));
-    const crop = PhotoPuzzle.crop(photo.width, photo.height, layout, framing);
-    framing.x = (crop.x + crop.width / 2) / photo.width;
-    framing.y = (crop.y + crop.height / 2) / photo.height;
+    const placement = clampFraming(layout);
     const columns = Math.ceil(layout.width / .32) + 1, rows = Math.ceil(layout.height / .32) + 1;
     if (sampling.width !== columns) sampling.width = columns;
     if (sampling.height !== rows) sampling.height = rows;
     sampleCtx.fillStyle = '#fff';
     sampleCtx.fillRect(0, 0, columns, rows);
-    sampleCtx.drawImage(photo, crop.x, crop.y, crop.width, crop.height, 0, 0, columns, rows);
+    const scaleX = columns / layout.width, scaleY = rows / layout.height;
+    sampleCtx.drawImage(photo, placement.x * scaleX, placement.y * scaleY, placement.width * scaleX, placement.height * scaleY);
     current = {layout, columns, rows, style: printStyle.value};
     $('puzzleSize').textContent = layout.width + ' × ' + layout.height + 'mm · 100조각';
     $('puzzleStatus').textContent = '';
@@ -96,19 +95,24 @@
     });
   }
 
-  function resetFraming() {
-    framing = {zoom: 1, x: .5, y: .5};
-    zoomControl.value = '100';
-    $('photoZoomValue').textContent = '100%';
+  function centerPhoto(percent) {
+    framing = {zoom: percent / 100, x: .5, y: .5};
+    zoomControl.value = String(percent);
+    $('photoZoomValue').textContent = percent + '%';
     schedulePrepare();
   }
 
+  function clampFraming(layout) {
+    const placement = PhotoPuzzle.photoPlacement(photo.width, photo.height, layout, framing);
+    framing.x = (placement.x + placement.width / 2) / layout.width;
+    framing.y = (placement.y + placement.height / 2) / layout.height;
+    return placement;
+  }
+
   function movePhoto(dx, dy) {
-    const bounds = PhotoPuzzle.crop(photo.width, photo.height, current.layout, framing);
-    const x = Math.max(0, Math.min(photo.width - bounds.width, bounds.x - dx * bounds.width));
-    const y = Math.max(0, Math.min(photo.height - bounds.height, bounds.y - dy * bounds.height));
-    framing.x = (x + bounds.width / 2) / photo.width;
-    framing.y = (y + bounds.height / 2) / photo.height;
+    framing.x += dx;
+    framing.y += dy;
+    clampFraming(current.layout);
     schedulePrepare();
   }
 
@@ -117,7 +121,12 @@
     $('photoZoomValue').textContent = zoomControl.value + '%';
     schedulePrepare();
   });
-  $('resetFraming').onclick = resetFraming;
+  $('resetFraming').onclick = () => centerPhoto(100);
+  $('fitPhoto').onclick = () => {
+    const {layout} = current;
+    const horizontal = layout.width / photo.width, vertical = layout.height / photo.height;
+    centerPhoto(Math.max(1, Math.floor(100 * Math.min(horizontal, vertical) / Math.max(horizontal, vertical))));
+  };
   canvas.addEventListener('pointerdown', event => {
     if (!current || drag || event.button !== 0) return;
     canvas.setPointerCapture(event.pointerId);
@@ -167,7 +176,7 @@
       await image.decode();
       if (id !== request) return;
       photo = image;
-      resetFraming();
+      centerPhoto(100);
     } catch {
       if (id === request) $('puzzleStatus').textContent = '사진을 열지 못했습니다. JPG, PNG 또는 WebP 파일을 선택해 주세요.';
     } finally {

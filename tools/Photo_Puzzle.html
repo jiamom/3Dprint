@@ -24,8 +24,9 @@
         </select>
       </label>
       <div class="framing-controls">
-        <label for="photoZoom">사진 확대 <output id="photoZoomValue" for="photoZoom">100%</output></label>
-        <input id="photoZoom" type="range" min="100" max="400" step="1" value="100" disabled>
+        <label for="photoZoom">사진 크기 <output id="photoZoomValue" for="photoZoom">100%</output></label>
+        <input id="photoZoom" type="range" min="1" max="400" step="1" value="100" disabled>
+        <button type="button" id="fitPhoto" disabled>전체 맞춤</button>
         <button type="button" id="resetFraming" disabled>구도 초기화</button>
       </div>
       <label for="printStyle">출력 스타일
@@ -64,7 +65,7 @@
 <script src="assets/name-keyring-core.js?v=keycaps-1"></script>
 <script src="assets/bambu-project-defaults.js?v=keycaps-1"></script>
 <script src="assets/bambu-3mf.js?v=photo-puzzle-1"></script>
-<script src="assets/photo-puzzle-core.js?v=3"></script>
-<script src="assets/photo-puzzle.js?v=3"></script>
+<script src="assets/photo-puzzle-core.js?v=4"></script>
+<script src="assets/photo-puzzle.js?v=4"></script>
 </body>
 </html>

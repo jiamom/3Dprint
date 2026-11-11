@@ -14,13 +14,17 @@ window.PhotoPuzzle = (() => {
     return landscape ? {width: 156, height: 116} : {width: 116, height: 156};
   }
 
-  function crop(width, height, target, {zoom = 1, x = .5, y = .5} = {}) {
-    const ratio = target.width / target.height;
-    const w = Math.min(width, height * ratio) / zoom;
-    const h = Math.min(height, width / ratio) / zoom;
+  function photoPlacement(width, height, target, {zoom = 1, x = .5, y = .5} = {}) {
+    const scale = Math.max(target.width / width, target.height / height) * zoom;
+    const w = width * scale;
+    const h = height * scale;
+    function edge(center, frameSize, imageSize) {
+      const space = frameSize - imageSize;
+      return Math.max(Math.min(0, space), Math.min(Math.max(0, space), center * frameSize - imageSize / 2));
+    }
     return {
-      x: Math.max(0, Math.min(width - w, width * x - w / 2)),
-      y: Math.max(0, Math.min(height - h, height * y - h / 2)),
+      x: edge(x, target.width, w),
+      y: edge(y, target.height, h),
       width: w, height: h
     };
   }
@@ -163,5 +167,5 @@ window.PhotoPuzzle = (() => {
       {name: 'Puzzle Frame', position: [128, 128, 0], parts: [{name: 'Frame', mesh: repair(mesh), color: '#000000'}]}
     ]}).bytes;
   }
-  return {layout, crop, heightField, previewColor, seams, puzzle3mf, frame3mf};
+  return {layout, photoPlacement, heightField, previewColor, seams, puzzle3mf, frame3mf};
 })();

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>사진 퍼즐</title>
 <link rel="stylesheet" href="assets/keycap.css?v=filament-palette-21">
-<link rel="stylesheet" href="assets/photo-puzzle.css?v=1">
+<link rel="stylesheet" href="assets/photo-puzzle.css?v=2">
 </head>
 <body>
 <main>
@@ -23,22 +23,36 @@
           <option value="portrait">세로</option>
         </select>
       </label>
+      <div class="framing-controls">
+        <label for="photoZoom">사진 확대 <output id="photoZoomValue" for="photoZoom">100%</output></label>
+        <input id="photoZoom" type="range" min="100" max="400" step="1" value="100" disabled>
+        <button type="button" id="resetFraming" disabled>구도 초기화</button>
+      </div>
+      <label for="printStyle">출력 스타일
+        <select id="printStyle">
+          <option value="color">컬러 · 4색</option>
+          <option value="mono">흑백 모노 · 2색</option>
+          <option value="solid">단색 모노 · 1색</option>
+        </select>
+      </label>
+      <p class="hint" id="filamentHint">검정·빨강·노랑·흰색 PLA를 층마다 바꿔 사진의 명암을 표현합니다.</p>
       <p id="puzzleSize" class="hint"></p>
       <button type="button" class="primary" id="savePuzzle" disabled>퍼즐 3MF 저장</button>
       <button type="button" id="saveFrame" class="frame-download" disabled>맞춤 받침판 3MF 저장</button>
       <p id="puzzleStatus" role="status" class="hint"></p>
-      <p class="hint">Bambu Studio에서 3MF를 열고 슬라이스하세요. 사진 명암은 검정·빨강·노랑·흰색 PLA를 층마다 바꿔 표현합니다.</p>
+      <p class="hint">Bambu Studio에서 3MF를 열고 슬라이스하세요.</p>
     </section>
     <section class="panel puzzle-preview">
       <div class="preview-bar">
         <h2>미리보기</h2>
         <div class="preview-switch" aria-label="미리보기 방식">
-          <button type="button" id="originalView" aria-pressed="false">사진 구도</button>
-          <button type="button" id="printView" aria-pressed="true">출력 명암</button>
+          <button type="button" id="originalView" aria-pressed="true">사진 구도</button>
+          <button type="button" id="printView" aria-pressed="false">출력 명암</button>
         </div>
       </div>
       <div id="photoPlaceholder" class="photo-placeholder">사진을 선택하면 퍼즐 조각과 구도가 표시됩니다.</div>
-      <canvas id="puzzlePreview" hidden aria-label="사진과 100조각 퍼즐 미리보기"></canvas>
+      <canvas id="puzzlePreview" hidden tabindex="0" aria-label="사진과 100조각 퍼즐 미리보기" aria-describedby="framingHint"></canvas>
+      <p id="framingHint" class="hint" hidden>사진을 드래그하거나 방향키를 눌러 위치를 옮기세요.</p>
       <p id="previewNote" class="hint" hidden>출력 명암은 화면에서 보는 예상 결과입니다. 실제 색은 필라멘트에 따라 달라집니다.</p>
     </section>
   </div>
@@ -50,7 +64,7 @@
 <script src="assets/name-keyring-core.js?v=keycaps-1"></script>
 <script src="assets/bambu-project-defaults.js?v=keycaps-1"></script>
 <script src="assets/bambu-3mf.js?v=photo-puzzle-1"></script>
-<script src="assets/photo-puzzle-core.js?v=1"></script>
-<script src="assets/photo-puzzle.js?v=1"></script>
+<script src="assets/photo-puzzle-core.js?v=3"></script>
+<script src="assets/photo-puzzle.js?v=3"></script>
 </body>
 </html>

@@ -9,3 +9,9 @@ h1{font-size:26px;margin:0 0 6px;letter-spacing:-.04em}
 .photo-placeholder[hidden],#puzzlePreview[hidden]{display:none}
 #puzzlePreview{display:block;margin:auto;max-width:100%;max-height:72vh;width:auto;height:auto;border-radius:5px}
 @media(max-width:900px){.photo-placeholder{min-height:190px}}
+.framing-controls label{display:flex;justify-content:space-between;margin-bottom:4px}
+.framing-controls input[type=range]{width:100%;margin:5px 0 10px;accent-color:#355c3d}
+.framing-controls output{font-variant-numeric:tabular-nums}
+#puzzlePreview{cursor:grab;touch-action:none}
+#puzzlePreview.is-dragging{cursor:grabbing}
+#puzzlePreview:focus-visible{outline:3px solid #94b67e;outline-offset:3px}

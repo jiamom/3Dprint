@@ -2,23 +2,30 @@
 window.PhotoPuzzle = (() => {
   const count = 10;
   const gap = .34;
-  const colors = ['#000000', '#C12E1E', '#F7D959', '#FFFFFF'];
-  const layerChanges = [{z: 2.04, slot: 2}, {z: 2.20, slot: 3}, {z: 2.28, slot: 4}];
   const tones = [[31, 26, 24], [87, 32, 29], [128, 47, 36], [170, 115, 53],
     [193, 157, 104], [212, 185, 144], [226, 207, 177], [237, 224, 204], [248, 244, 231]];
+  const styles = {
+    color: {colors: ['#000000', '#C12E1E', '#F7D959', '#FFFFFF'], changes: [{z: 2.04, slot: 2}, {z: 2.20, slot: 3}, {z: 2.28, slot: 4}], depth: .65},
+    mono: {colors: ['#000000', '#FFFFFF'], changes: [{z: 2.12, slot: 2}], depth: .65},
+    solid: {colors: ['#FFFFFF'], changes: [], depth: 1.2}
+  };
 
   function layout(landscape) {
     return landscape ? {width: 156, height: 116} : {width: 116, height: 156};
   }
 
-  function crop(width, height, target) {
+  function crop(width, height, target, {zoom = 1, x = .5, y = .5} = {}) {
     const ratio = target.width / target.height;
-    const w = Math.min(width, height * ratio);
-    const h = Math.min(height, width / ratio);
-    return {x: (width - w) / 2, y: (height - h) / 2, width: w, height: h};
+    const w = Math.min(width, height * ratio) / zoom;
+    const h = Math.min(height, width / ratio) / zoom;
+    return {
+      x: Math.max(0, Math.min(width - w, width * x - w / 2)),
+      y: Math.max(0, Math.min(height - h, height * y - h / 2)),
+      width: w, height: h
+    };
   }
 
-  function heightField(rgba, width, height) {
+  function heightField(rgba, width, height, style = 'color') {
     const luma = new Float32Array(width * height);
     const histogram = new Uint32Array(256);
     for (let i = 0; i < luma.length; i++) {
@@ -34,12 +41,20 @@ window.PhotoPuzzle = (() => {
     const dark = percentile(.015), light = percentile(.985);
     return luma.map(value => {
       const normalized = light - dark > 24 ? (value - dark) / (light - dark) : value / 255;
-      return 1.98 + .65 * Math.max(0, Math.min(1, normalized)) ** 1.23;
+      return 1.98 + styles[style].depth * Math.max(0, Math.min(1, normalized)) ** 1.23;
     });
   }
 
-  function previewColor(z) {
+  function previewColor(z, style = 'color') {
     const index = Math.max(0, Math.min(tones.length - 1, Math.floor((z - 1.98) / .079)));
+    if (style === 'mono') {
+      const gray = [29, 33, 96, 146, 180, 204, 221, 234, 246][index];
+      return [gray, gray, gray];
+    }
+    if (style === 'solid') {
+      const gray = Math.round(112 + 130 * Math.max(0, Math.min(1, (z - 1.98) / styles.solid.depth)));
+      return [gray, gray, gray];
+    }
     return tones[index];
   }
 
@@ -116,12 +131,13 @@ window.PhotoPuzzle = (() => {
     return {v, f};
   }
 
-  function puzzle3mf(layout, field, columns, rows) {
+  function puzzle3mf(layout, field, columns, rows, style = 'color') {
+    const {colors, changes} = styles[style];
     return Bambu3MF.write({
       title: 'Photo Puzzle - 100 pieces',
       filamentColors: colors,
-      projectSettings: {layer_height: '0.08', initial_layer_print_height: '0.2', enable_support: '0', enable_prime_tower: '1'},
-      layerChanges,
+      projectSettings: {layer_height: '0.08', initial_layer_print_height: '0.2', enable_support: '0', enable_prime_tower: changes.length ? '1' : '0'},
+      layerChanges: changes,
       objects: [{name: 'Photo Puzzle - 100 pieces', position: [128, 128, 0], parts: [
         {name: 'Photo relief', mesh: relief(layout, field, columns, rows), color: colors[0]},
         {name: '100-piece cuts', mesh: cutter(layout), color: colors[0], negative: true}
@@ -144,7 +160,7 @@ window.PhotoPuzzle = (() => {
     const ids = innerWalls.v.map(v => vertex(mesh, ...v));
     for (const [a, b, c] of innerWalls.f) mesh.f.push([ids[a], ids[c], ids[b]]);
     return Bambu3MF.write({title: 'Photo Puzzle Frame', projectSettings: {layer_height: '0.20'}, objects: [
-      {name: 'Puzzle Frame', position: [128, 128, 0], parts: [{name: 'Frame', mesh: repair(mesh), color: colors[0]}]}
+      {name: 'Puzzle Frame', position: [128, 128, 0], parts: [{name: 'Frame', mesh: repair(mesh), color: '#000000'}]}
     ]}).bytes;
   }
   return {layout, crop, heightField, previewColor, seams, puzzle3mf, frame3mf};

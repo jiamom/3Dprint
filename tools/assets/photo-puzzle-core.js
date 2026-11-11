@@ -1,0 +1,151 @@
+/* Photo height field and interlocking cuts, in millimetres. */
+window.PhotoPuzzle = (() => {
+  const count = 10;
+  const gap = .34;
+  const colors = ['#000000', '#C12E1E', '#F7D959', '#FFFFFF'];
+  const layerChanges = [{z: 2.04, slot: 2}, {z: 2.20, slot: 3}, {z: 2.28, slot: 4}];
+  const tones = [[31, 26, 24], [87, 32, 29], [128, 47, 36], [170, 115, 53],
+    [193, 157, 104], [212, 185, 144], [226, 207, 177], [237, 224, 204], [248, 244, 231]];
+
+  function layout(landscape) {
+    return landscape ? {width: 156, height: 116} : {width: 116, height: 156};
+  }
+
+  function crop(width, height, target) {
+    const ratio = target.width / target.height;
+    const w = Math.min(width, height * ratio);
+    const h = Math.min(height, width / ratio);
+    return {x: (width - w) / 2, y: (height - h) / 2, width: w, height: h};
+  }
+
+  function heightField(rgba, width, height) {
+    const luma = new Float32Array(width * height);
+    const histogram = new Uint32Array(256);
+    for (let i = 0; i < luma.length; i++) {
+      const j = i * 4, alpha = rgba[j + 3] / 255;
+      const light = (rgba[j] * .2126 + rgba[j + 1] * .7152 + rgba[j + 2] * .0722) * alpha + 255 * (1 - alpha);
+      luma[i] = light;
+      histogram[Math.round(light)]++;
+    }
+    function percentile(fraction) {
+      let accumulated = 0;
+      return histogram.findIndex(n => (accumulated += n) >= luma.length * fraction);
+    }
+    const dark = percentile(.015), light = percentile(.985);
+    return luma.map(value => {
+      const normalized = light - dark > 24 ? (value - dark) / (light - dark) : value / 255;
+      return 1.98 + .65 * Math.max(0, Math.min(1, normalized)) ** 1.23;
+    });
+  }
+
+  function previewColor(z) {
+    const index = Math.max(0, Math.min(tones.length - 1, Math.floor((z - 1.98) / .079)));
+    return tones[index];
+  }
+
+  function seams({width, height}) {
+    const lines = [];
+    const curves = [
+      [[.39, 0], [.47, 0], [.45, .22]],
+      [[.33, .84], [.39, 1], [.5, 1]],
+      [[.61, 1], [.67, .84], [.55, .22]],
+      [[.53, 0], [.61, 0], [.67, 0]]
+    ];
+    function edge(x, y, length, vertical, sign) {
+      const points = [[0, 0], [.33, 0]];
+      const depth = Math.min(2.7, length * .22) * sign;
+      for (const controls of curves) {
+        const [a, b, c, d] = [points[points.length - 1], ...controls];
+        for (let i = 1; i <= 9; i++) {
+          const t = i / 9, u = 1 - t;
+          points.push([0, 1].map(k => u ** 3 * a[k] + 3 * u ** 2 * t * b[k] + 3 * u * t ** 2 * c[k] + t ** 3 * d[k]));
+        }
+      }
+      points.push([1, 0]);
+      lines.push(points.map(([t, normal]) => vertical ? [x + normal * depth, y + t * length] : [x + t * length, y + normal * depth]));
+    }
+    const dx = width / count, dy = height / count;
+    for (let line = 1; line < count; line++) {
+      for (let cell = 0; cell < count; cell++) {
+        const sign = (line * 7 + cell * 11 + (line * cell) % 3) % 2 ? 1 : -1;
+        edge(-width / 2 + line * dx, -height / 2 + cell * dy, dy, true, sign);
+        edge(-width / 2 + cell * dx, -height / 2 + line * dy, dx, false, -sign);
+      }
+    }
+    return lines;
+  }
+
+  function rectangle(width, height) {
+    return intPaths([[[-width / 2, -height / 2], [width / 2, -height / 2], [width / 2, height / 2], [-width / 2, height / 2]]]);
+  }
+
+  function cutter(layout) {
+    const offset = new ClipperLib.ClipperOffset(2, .005 * UNIT);
+    offset.AddPaths(intPaths(seams(layout)), ClipperLib.JoinType.jtRound, ClipperLib.EndType.etOpenRound);
+    const paths = [];
+    offset.Execute(paths, gap * UNIT / 2);
+    const cuts = clip(paths);
+    const pieces = clip(rectangle(layout.width, layout.height), pathsOf(cuts), ClipperLib.ClipType.ctDifference);
+    if (pieces.Childs().length !== count ** 2) throw Error('퍼즐 조각을 만들지 못했습니다.');
+    return extrude(cuts, 0, 3.2);
+  }
+
+  function relief({width, height}, data, columns, rows) {
+    if (data.length !== columns * rows || rows < 2 || columns < 2) throw Error('사진 데이터가 올바르지 않습니다.');
+    const v = [], f = [], rim = [];
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < columns; x++) {
+        const a = y * columns + x;
+        v.push([(x / (columns - 1) - .5) * width, (.5 - y / (rows - 1)) * height, data[a]]);
+        if (x + 1 < columns && y + 1 < rows) {
+          const b = a + 1, c = a + columns, d = c + 1;
+          f.push([a, c, b], [b, c, d]);
+        }
+      }
+    }
+    for (let y = 0; y < rows; y++) rim.push(y * columns);
+    for (let x = 1; x < columns; x++) rim.push((rows - 1) * columns + x);
+    for (let y = rows - 2; y >= 0; y--) rim.push(y * columns + columns - 1);
+    for (let x = columns - 2; x > 0; x--) rim.push(x);
+    const bottom = rim.map(i => v.push([v[i][0], v[i][1], 0]) - 1);
+    const center = v.push([0, 0, 0]) - 1;
+    rim.forEach((a, i) => {
+      const j = (i + 1) % rim.length, b = rim[j];
+      f.push([bottom[i], bottom[j], b], [bottom[i], b, a], [center, bottom[j], bottom[i]]);
+    });
+    return {v, f};
+  }
+
+  function puzzle3mf(layout, field, columns, rows) {
+    return Bambu3MF.write({
+      title: 'Photo Puzzle - 100 pieces',
+      filamentColors: colors,
+      projectSettings: {layer_height: '0.08', initial_layer_print_height: '0.2', enable_support: '0', enable_prime_tower: '1'},
+      layerChanges,
+      objects: [{name: 'Photo Puzzle - 100 pieces', position: [128, 128, 0], parts: [
+        {name: 'Photo relief', mesh: relief(layout, field, columns, rows), color: colors[0]},
+        {name: '100-piece cuts', mesh: cutter(layout), color: colors[0], negative: true}
+      ]}]
+    }).bytes;
+  }
+
+  function frame3mf({width, height}) {
+    const innerWidth = width + .7, innerHeight = height + .7;
+    const outer = clip(rectangle(innerWidth + 4, innerHeight + 4));
+    const inside = clip(rectangle(innerWidth, innerHeight));
+    const rim = clip(pathsOf(outer), pathsOf(inside), ClipperLib.ClipType.ctDifference);
+    const base = 1.8, top = 3.8, mesh = makeMesh();
+    surface(mesh, outer, 0, false);
+    walls(mesh, outer, 0, top);
+    surface(mesh, rim, top, true);
+    surface(mesh, inside, base, true);
+    const innerWalls = makeMesh();
+    walls(innerWalls, inside, base, top);
+    const ids = innerWalls.v.map(v => vertex(mesh, ...v));
+    for (const [a, b, c] of innerWalls.f) mesh.f.push([ids[a], ids[c], ids[b]]);
+    return Bambu3MF.write({title: 'Photo Puzzle Frame', projectSettings: {layer_height: '0.20'}, objects: [
+      {name: 'Puzzle Frame', position: [128, 128, 0], parts: [{name: 'Frame', mesh: repair(mesh), color: colors[0]}]}
+    ]}).bytes;
+  }
+  return {layout, crop, heightField, previewColor, seams, puzzle3mf, frame3mf};
+})();

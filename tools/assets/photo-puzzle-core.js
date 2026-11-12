@@ -1,6 +1,7 @@
 /* Photo height field and interlocking cuts, in millimetres. */
 window.PhotoPuzzle = (() => {
-  const count = 10;
+  const grids = new Map([[12, [4, 3]], [24, [6, 4]], [48, [8, 6]], [80, [10, 8]],
+    [100, [10, 10]], [144, [12, 12]], [192, [16, 12]]]);
   const gap = .34;
   const tones = [[31, 26, 24], [87, 32, 29], [128, 47, 36], [170, 115, 53],
     [193, 157, 104], [212, 185, 144], [226, 207, 177], [237, 224, 204], [248, 244, 231]];
@@ -10,8 +11,12 @@ window.PhotoPuzzle = (() => {
     solid: {colors: ['#FFFFFF'], changes: [], depth: 1.2}
   };
 
-  function layout(landscape) {
-    return landscape ? {width: 156, height: 116} : {width: 116, height: 156};
+  function layout(landscape, pieces = 100) {
+    const grid = grids.get(pieces);
+    if (!grid) throw Error('지원하는 퍼즐 조각 수를 선택해 주세요.');
+    const [across, down] = grid;
+    return landscape ? {width: 156, height: 116, across, down, pieces}
+      : {width: 116, height: 156, across: down, down: across, pieces};
   }
 
   function photoPlacement(width, height, target, {zoom = 1, x = .5, y = .5} = {}) {
@@ -62,7 +67,7 @@ window.PhotoPuzzle = (() => {
     return tones[index];
   }
 
-  function seams({width, height}) {
+  function seams({width, height, across, down}) {
     const lines = [];
     const curves = [
       [[.39, 0], [.47, 0], [.45, .22]],
@@ -83,12 +88,16 @@ window.PhotoPuzzle = (() => {
       points.push([1, 0]);
       lines.push(points.map(([t, normal]) => vertical ? [x + normal * depth, y + t * length] : [x + t * length, y + normal * depth]));
     }
-    const dx = width / count, dy = height / count;
-    for (let line = 1; line < count; line++) {
-      for (let cell = 0; cell < count; cell++) {
-        const sign = (line * 7 + cell * 11 + (line * cell) % 3) % 2 ? 1 : -1;
-        edge(-width / 2 + line * dx, -height / 2 + cell * dy, dy, true, sign);
-        edge(-width / 2 + cell * dx, -height / 2 + line * dy, dx, false, -sign);
+    const dx = width / across, dy = height / down;
+    const sign = (line, cell) => (line * 7 + cell * 11 + (line * cell) % 3) % 2 ? 1 : -1;
+    for (let line = 1; line < across; line++) {
+      for (let cell = 0; cell < down; cell++) {
+        edge(-width / 2 + line * dx, -height / 2 + cell * dy, dy, true, sign(line, cell));
+      }
+    }
+    for (let line = 1; line < down; line++) {
+      for (let cell = 0; cell < across; cell++) {
+        edge(-width / 2 + cell * dx, -height / 2 + line * dy, dx, false, -sign(line, cell));
       }
     }
     return lines;
@@ -105,7 +114,7 @@ window.PhotoPuzzle = (() => {
     offset.Execute(paths, gap * UNIT / 2);
     const cuts = clip(paths);
     const pieces = clip(rectangle(layout.width, layout.height), pathsOf(cuts), ClipperLib.ClipType.ctDifference);
-    if (pieces.Childs().length !== count ** 2) throw Error('퍼즐 조각을 만들지 못했습니다.');
+    if (pieces.Childs().length !== layout.pieces) throw Error('퍼즐 조각을 만들지 못했습니다.');
     return extrude(cuts, 0, 3.2);
   }
 
@@ -137,14 +146,15 @@ window.PhotoPuzzle = (() => {
 
   function puzzle3mf(layout, field, columns, rows, style = 'color') {
     const {colors, changes} = styles[style];
+    const title = 'Photo Puzzle - ' + layout.pieces + ' pieces';
     return Bambu3MF.write({
-      title: 'Photo Puzzle - 100 pieces',
+      title,
       filamentColors: colors,
       projectSettings: {layer_height: '0.08', initial_layer_print_height: '0.2', enable_support: '0', enable_prime_tower: changes.length ? '1' : '0'},
       layerChanges: changes,
-      objects: [{name: 'Photo Puzzle - 100 pieces', position: [128, 128, 0], parts: [
+      objects: [{name: title, position: [128, 128, 0], parts: [
         {name: 'Photo relief', mesh: relief(layout, field, columns, rows), color: colors[0]},
-        {name: '100-piece cuts', mesh: cutter(layout), color: colors[0], negative: true}
+        {name: 'Puzzle cuts', mesh: cutter(layout), color: colors[0], negative: true}
       ]}]
     }).bytes;
   }
@@ -167,5 +177,5 @@ window.PhotoPuzzle = (() => {
       {name: 'Puzzle Frame', position: [128, 128, 0], parts: [{name: 'Frame', mesh: repair(mesh), color: '#000000'}]}
     ]}).bytes;
   }
-  return {layout, photoPlacement, heightField, previewColor, seams, puzzle3mf, frame3mf};
+  return {pieceCounts: [...grids.keys()], layout, photoPlacement, heightField, previewColor, seams, puzzle3mf, frame3mf};
 })();

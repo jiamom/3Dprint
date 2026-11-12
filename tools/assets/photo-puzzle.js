@@ -4,6 +4,11 @@
   const sampling = document.createElement('canvas'), sampleCtx = sampling.getContext('2d', {willReadFrequently: true});
   const zoomControl = $('photoZoom');
   const printStyle = $('printStyle');
+  const pieceCount = $('pieceCount');
+  for (const count of PhotoPuzzle.pieceCounts) {
+    pieceCount.add(new Option(count + '조각', count));
+  }
+  pieceCount.value = '100';
   const filamentHints = {
     color: '검정·빨강·노랑·흰색 PLA를 층마다 바꿔 사진의 명암을 표현합니다.',
     mono: '검정과 흰색 PLA로 사진의 명암을 표현합니다.',
@@ -71,7 +76,8 @@
   function prepare() {
     if (!photo) return;
     const option = $('orientation').value;
-    const layout = PhotoPuzzle.layout(option === 'landscape' || (option === 'auto' && photo.width >= photo.height));
+    const landscape = option === 'landscape' || (option === 'auto' && photo.width >= photo.height);
+    const layout = PhotoPuzzle.layout(landscape, Number(pieceCount.value));
     const placement = clampFraming(layout);
     const columns = Math.ceil(layout.width / .32) + 1, rows = Math.ceil(layout.height / .32) + 1;
     if (sampling.width !== columns) sampling.width = columns;
@@ -81,7 +87,7 @@
     const scaleX = columns / layout.width, scaleY = rows / layout.height;
     sampleCtx.drawImage(photo, placement.x * scaleX, placement.y * scaleY, placement.width * scaleX, placement.height * scaleY);
     current = {layout, columns, rows, style: printStyle.value};
-    $('puzzleSize').textContent = layout.width + ' × ' + layout.height + 'mm · 100조각';
+    $('puzzleSize').textContent = layout.width + ' × ' + layout.height + 'mm · ' + layout.pieces + '조각';
     $('puzzleStatus').textContent = '';
     draw();
     refreshButtons();
@@ -184,6 +190,7 @@
     }
   });
   $('orientation').addEventListener('change', schedulePrepare);
+  pieceCount.addEventListener('change', schedulePrepare);
   printStyle.addEventListener('change', () => {
     $('filamentHint').textContent = filamentHints[printStyle.value];
     if (photo) view(true);
@@ -217,7 +224,7 @@
       const link = document.createElement('a');
       link.href = url;
       const suffix = style === 'color' ? '' : style === 'mono' ? '_BW' : '_Single';
-      link.download = frame ? 'Photo_Puzzle_Frame.3mf' : 'Photo_Puzzle_100' + suffix + '.3mf';
+      link.download = frame ? 'Photo_Puzzle_Frame.3mf' : 'Photo_Puzzle_' + layout.pieces + suffix + '.3mf';
       document.body.append(link);
       link.click();
       link.remove();

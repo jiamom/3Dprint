@@ -82,21 +82,41 @@ window.PhotoPuzzle = (() => {
       return state / 4294967296;
     }
     const dx = width / across, dy = height / down;
-    function edge(x, y, length, pitch, vertical) {
-      const center = .43 + random() * .14;
-      const shoulder = .15 + random() * .10;
+    // Warp a shared grid without folding it. The outer border stays rectangular.
+    const junctions = Array.from({length: down + 1}, (_, row) =>
+      Array.from({length: across + 1}, (_, column) => [
+        column + (column > 0 && column < across ? (random() - .5) * .46 : 0),
+        row + (row > 0 && row < down ? (random() - .5) * .46 : 0)
+      ]));
+    function warp(x, y) {
+      const column = Math.min(across - 1, Math.floor(x));
+      const row = Math.min(down - 1, Math.floor(y));
+      const u = x - column, v = y - row;
+      const a = junctions[row][column], b = junctions[row][column + 1];
+      const c = junctions[row + 1][column], d = junctions[row + 1][column + 1];
+      const interpolate = axis => (a[axis] * (1 - u) + b[axis] * u) * (1 - v)
+        + (c[axis] * (1 - u) + d[axis] * u) * v;
+      return [(interpolate(0) - across / 2) * dx, (interpolate(1) - down / 2) * dy];
+    }
+    function edge(column, row, vertical) {
+      const length = vertical ? dy : dx;
+      const pitch = vertical ? dx : dy;
+      const bend = (random() - .5) * .16;
+      const center = .46 + random() * .08;
+      const shoulder = .15 + random() * .06;
       const neck = shoulder * (.29 + random() * .23);
       const bulb = shoulder * (.75 + random() * .35);
       const lean = (random() - .5) * .085;
       const crown = .56 + random() * .42;
       const direction = random() < .5 ? -1 : 1;
-      const depth = Math.min(3.6, length * .28, pitch * .26) * (.68 + random() * .32) * direction;
-      const points = [[0, 0], [center - shoulder, 0]];
+      const depth = Math.min(3.6 / pitch, length / pitch * .25, .20) * (.68 + random() * .32) * direction;
+      const left = center - shoulder, right = center + shoulder;
+      const points = [[0, 0], [left / 3, 0], [left * 2 / 3, 0], [left, 0]];
       const curves = [
         [[center - shoulder * .6, 0], [center - neck, 0], [center - neck, .24]],
         [[center + lean - bulb, crown], [center + lean - bulb, 1], [center + lean, 1]],
         [[center + lean + bulb, 1], [center + lean + bulb, crown], [center + neck, .24]],
-        [[center + neck, 0], [center + shoulder * .6, 0], [center + shoulder, 0]]
+        [[center + neck, 0], [center + shoulder * .6, 0], [right, 0]]
       ];
       for (const controls of curves) {
         const [a, b, c, d] = [points[points.length - 1], ...controls];
@@ -105,17 +125,20 @@ window.PhotoPuzzle = (() => {
           points.push([0, 1].map(k => u ** 3 * a[k] + 3 * u ** 2 * t * b[k] + 3 * u * t ** 2 * c[k] + t ** 3 * d[k]));
         }
       }
-      points.push([1, 0]);
-      lines.push(points.map(([t, normal]) => vertical ? [x + normal * depth, y + t * length] : [x + t * length, y + normal * depth]));
+      points.push([right + (1 - right) / 3, 0], [right + (1 - right) * 2 / 3, 0], [1, 0]);
+      lines.push(points.map(([t, tab]) => {
+        const offset = tab * depth + Math.sin(Math.PI * t) ** 2 * bend;
+        return vertical ? warp(column + offset, row + t) : warp(column + t, row + offset);
+      }));
     }
     for (let line = 1; line < across; line++) {
       for (let cell = 0; cell < down; cell++) {
-        edge(-width / 2 + line * dx, -height / 2 + cell * dy, dy, dx, true);
+        edge(line, cell, true);
       }
     }
     for (let line = 1; line < down; line++) {
       for (let cell = 0; cell < across; cell++) {
-        edge(-width / 2 + cell * dx, -height / 2 + line * dy, dx, dy, false);
+        edge(cell, line, false);
       }
     }
     return lines;

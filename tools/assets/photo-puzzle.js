@@ -7,6 +7,7 @@
   const pieceCount = $('pieceCount');
   const refreshCuts = $('refreshCuts');
   const caption = $('photoCaption'), captionFont = $('captionFont');
+  const captionSize = $('captionSize'), captionX = $('captionX'), captionY = $('captionY');
   for (const count of PhotoPuzzle.pieceCounts) {
     pieceCount.add(new Option(count + '조각', count));
   }
@@ -89,22 +90,29 @@
     const text = caption.value.trim();
     if (!text) return;
     const width = columns * .9;
-    let size = Math.round(Math.min(columns, rows) * .09);
+    let size = Math.round(Math.min(columns, rows) * .09 * Number(captionSize.value) / 100);
     sampleCtx.save();
-    sampleCtx.font = captionTypeface(size);
-    const measuredWidth = sampleCtx.measureText(text).width;
-    if (measuredWidth > width) {
-      size = Math.max(10, Math.floor(size * width / measuredWidth));
-      sampleCtx.font = captionTypeface(size);
-    }
     sampleCtx.textAlign = 'center';
-    sampleCtx.textBaseline = 'top';
+    sampleCtx.textBaseline = 'alphabetic';
+    sampleCtx.font = captionTypeface(size);
+    let metrics = sampleCtx.measureText(text);
+    if (metrics.width > width) {
+      size = Math.max(10, Math.floor(size * width / metrics.width));
+      sampleCtx.font = captionTypeface(size);
+      metrics = sampleCtx.measureText(text);
+    }
     sampleCtx.lineJoin = 'round';
     sampleCtx.lineWidth = Math.max(2, size * .13);
     sampleCtx.strokeStyle = '#000';
     sampleCtx.fillStyle = '#fff';
-    sampleCtx.strokeText(text, columns / 2, rows * .045, width);
-    sampleCtx.fillText(text, columns / 2, rows * .045, width);
+    const padding = sampleCtx.lineWidth / 2 + 2;
+    const halfWidth = Math.min(metrics.width, width) / 2 + padding;
+    const ascent = metrics.actualBoundingBoxAscent || size;
+    const descent = metrics.actualBoundingBoxDescent || 0;
+    const x = halfWidth + Math.max(0, columns - halfWidth * 2) * Number(captionX.value) / 100;
+    const y = padding + ascent + Math.max(0, rows - padding * 2 - ascent - descent) * Number(captionY.value) / 100;
+    sampleCtx.strokeText(text, x, y, width);
+    sampleCtx.fillText(text, x, y, width);
     sampleCtx.restore();
   }
 
@@ -255,6 +263,12 @@
   });
   caption.addEventListener('input', updateCaption);
   captionFont.addEventListener('change', updateCaption);
+  for (const control of [captionSize, captionX, captionY]) {
+    control.addEventListener('input', () => {
+      $(control.id + 'Value').textContent = control.value + '%';
+      schedulePrepare();
+    });
+  }
   pieceCount.addEventListener('change', schedulePrepare);
   printStyle.addEventListener('change', () => {
     $('filamentHint').textContent = filamentHints[printStyle.value];

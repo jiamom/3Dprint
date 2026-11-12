@@ -29,6 +29,14 @@
           <option value="PuzzleChicalo">Chicalo (영문)</option>
         </select>
       </label>
+      <div class="framing-controls">
+        <label for="captionSize">문구 크기 <output id="captionSizeValue" for="captionSize">100%</output></label>
+        <input id="captionSize" type="range" min="40" max="220" value="100">
+        <label for="captionX">문구 가로 위치 <output id="captionXValue" for="captionX">50%</output></label>
+        <input id="captionX" type="range" min="0" max="100" value="50">
+        <label for="captionY">문구 세로 위치 <output id="captionYValue" for="captionY">4%</output></label>
+        <input id="captionY" type="range" min="0" max="100" value="4">
+      </div>
       <label for="orientation">퍼즐 방향
         <select id="orientation">
           <option value="auto">사진에 맞춤</option>
@@ -82,7 +90,7 @@
 <script src="assets/name-keyring-core.js?v=keycaps-1"></script>
 <script src="assets/bambu-project-defaults.js?v=keycaps-1"></script>
 <script src="assets/bambu-3mf.js?v=photo-puzzle-1"></script>
-<script src="assets/photo-puzzle-core.js?v=7"></script>
-<script src="assets/photo-puzzle.js?v=7"></script>
+<script src="assets/photo-puzzle-core.js?v=8"></script>
+<script src="assets/photo-puzzle.js?v=8"></script>
 </body>
 </html>

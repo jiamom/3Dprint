@@ -17,6 +17,10 @@ h1{font-size:26px;margin:0 0 6px;letter-spacing:-.04em}
 .framing-controls label{display:flex;justify-content:space-between;margin-bottom:4px}
 .framing-controls input[type=range]{width:100%;margin:5px 0 10px;accent-color:#355c3d}
 .framing-controls output{font-variant-numeric:tabular-nums}
+.print-dimensions:not([hidden]){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.print-dimensions label{margin-top:0}
+#orientationSetting[hidden]{display:none}
+#printSizeError{color:#9f4037}
 #puzzlePreview{cursor:grab;touch-action:none}
 #puzzlePreview.is-dragging{cursor:grabbing}
 #puzzlePreview:focus-visible{outline:3px solid #94b67e;outline-offset:3px}

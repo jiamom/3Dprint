@@ -4,10 +4,13 @@
   const sampling = document.createElement('canvas'), sampleCtx = sampling.getContext('2d', {willReadFrequently: true});
   const zoomControl = $('photoZoom');
   const printStyle = $('printStyle');
+  const printSize = $('printSize'), printWidth = $('printWidth'), printHeight = $('printHeight');
+  const orientation = $('orientation');
   const pieceCount = $('pieceCount');
   const refreshCuts = $('refreshCuts');
   const caption = $('photoCaption'), captionFont = $('captionFont');
   const captionSize = $('captionSize'), captionX = $('captionX'), captionY = $('captionY');
+  const captionAngle = $('captionAngle');
   for (const count of PhotoPuzzle.pieceCounts) {
     pieceCount.add(new Option(count + '조각', count));
   }
@@ -24,9 +27,10 @@
   let framing = {zoom: 1, x: .5, y: .5};
 
   function refreshButtons() {
-    $('savePuzzle').disabled = busy || !current || captionLoading;
-    $('saveFrame').disabled = busy || !current;
-    refreshCuts.disabled = busy || !current;
+    const unavailable = busy || !current || !validPrintSize();
+    $('savePuzzle').disabled = unavailable || captionLoading;
+    $('saveFrame').disabled = unavailable;
+    refreshCuts.disabled = unavailable;
     zoomControl.disabled = $('fitPhoto').disabled = $('resetFraming').disabled = !photo;
   }
 
@@ -87,30 +91,41 @@
   function drawCaption(columns, rows) {
     const text = caption.value.trim();
     if (!text) return;
-    const width = columns * .9;
-    let size = Math.round(Math.min(columns, rows) * .09 * Number(captionSize.value) / 100);
+    const angle = Number(captionAngle.value) * Math.PI / 180;
+    const cosine = Math.abs(Math.cos(angle)), sine = Math.abs(Math.sin(angle));
+    let size = Math.min(columns, rows) * .09 * Number(captionSize.value) / 100;
     sampleCtx.save();
     sampleCtx.textAlign = 'center';
     sampleCtx.textBaseline = 'alphabetic';
-    sampleCtx.font = captionTypeface(size);
-    let metrics = sampleCtx.measureText(text);
-    if (metrics.width > width) {
-      size = Math.max(10, Math.floor(size * width / metrics.width));
+    function bounds() {
       sampleCtx.font = captionTypeface(size);
-      metrics = sampleCtx.measureText(text);
+      sampleCtx.lineWidth = Math.max(2, size * .13);
+      const metrics = sampleCtx.measureText(text);
+      const left = metrics.actualBoundingBoxLeft ?? metrics.width / 2;
+      const right = metrics.actualBoundingBoxRight ?? metrics.width / 2;
+      const ascent = metrics.actualBoundingBoxAscent ?? size;
+      const descent = metrics.actualBoundingBoxDescent ?? 0;
+      const width = left + right + sampleCtx.lineWidth;
+      const height = ascent + descent + sampleCtx.lineWidth;
+      return {offsetX: (left - right) / 2, offsetY: (ascent - descent) / 2,
+        width: width * cosine + height * sine, height: width * sine + height * cosine};
     }
+    let box = bounds();
+    const fit = Math.min(1, columns * .9 / box.width, rows * .9 / box.height);
+    if (fit < 1) {
+      size *= fit;
+      box = bounds();
+    }
+    const halfWidth = box.width / 2 + 2, halfHeight = box.height / 2 + 2;
+    const x = halfWidth + Math.max(0, columns - halfWidth * 2) * Number(captionX.value) / 100;
+    const y = halfHeight + Math.max(0, rows - halfHeight * 2) * Number(captionY.value) / 100;
     sampleCtx.lineJoin = 'round';
-    sampleCtx.lineWidth = Math.max(2, size * .13);
     sampleCtx.strokeStyle = '#000';
     sampleCtx.fillStyle = '#fff';
-    const padding = sampleCtx.lineWidth / 2 + 2;
-    const halfWidth = Math.min(metrics.width, width) / 2 + padding;
-    const ascent = metrics.actualBoundingBoxAscent || size;
-    const descent = metrics.actualBoundingBoxDescent || 0;
-    const x = halfWidth + Math.max(0, columns - halfWidth * 2) * Number(captionX.value) / 100;
-    const y = padding + ascent + Math.max(0, rows - padding * 2 - ascent - descent) * Number(captionY.value) / 100;
-    sampleCtx.strokeText(text, x, y, width);
-    sampleCtx.fillText(text, x, y, width);
+    sampleCtx.translate(x, y);
+    sampleCtx.rotate(angle);
+    sampleCtx.strokeText(text, box.offsetX, box.offsetY);
+    sampleCtx.fillText(text, box.offsetX, box.offsetY);
     sampleCtx.restore();
   }
 
@@ -131,11 +146,29 @@
     schedulePrepare();
   }
 
+  function validPrintSize() {
+    return printSize.value !== 'custom' || (printWidth.validity.valid && printHeight.validity.valid);
+  }
+
+  function updatePrintSize() {
+    const custom = printSize.value === 'custom';
+    $('printDimensions').hidden = !custom;
+    $('orientationSetting').hidden = custom;
+    $('printSizeError').hidden = validPrintSize();
+    refreshButtons();
+    schedulePrepare();
+  }
+
   function prepare() {
-    if (!photo) return;
-    const option = $('orientation').value;
-    const landscape = option === 'landscape' || (option === 'auto' && photo.width >= photo.height);
-    const layout = PhotoPuzzle.layout(landscape, Number(pieceCount.value), current?.layout.seed);
+    if (!photo || !validPrintSize()) return;
+    const custom = printSize.value === 'custom';
+    const option = orientation.value;
+    const landscape = custom ? printWidth.valueAsNumber >= printHeight.valueAsNumber
+      : option === 'landscape' || (option === 'auto' && photo.width >= photo.height);
+    const [long, short] = printSize.value.split('x').map(Number);
+    const dimensions = custom ? {width: printWidth.valueAsNumber, height: printHeight.valueAsNumber}
+      : {width: landscape ? long : short, height: landscape ? short : long};
+    const layout = PhotoPuzzle.layout(landscape, Number(pieceCount.value), current?.layout.seed, dimensions);
     const placement = clampFraming(layout);
     const columns = Math.ceil(layout.width / .32) + 1, rows = Math.ceil(layout.height / .32) + 1;
     if (sampling.width !== columns) sampling.width = columns;
@@ -248,7 +281,10 @@
       URL.revokeObjectURL(url);
     }
   });
-  $('orientation').addEventListener('change', schedulePrepare);
+  orientation.addEventListener('change', schedulePrepare);
+  printSize.addEventListener('change', updatePrintSize);
+  printWidth.addEventListener('input', updatePrintSize);
+  printHeight.addEventListener('input', updatePrintSize);
   refreshCuts.onclick = () => {
     if (refreshCuts.disabled) return;
     current.layout = PhotoPuzzle.reroll(current.layout);
@@ -261,9 +297,9 @@
   });
   caption.addEventListener('input', updateCaption);
   captionFont.addEventListener('change', updateCaption);
-  for (const control of [captionSize, captionX, captionY]) {
+  for (const control of [captionSize, captionX, captionY, captionAngle]) {
     control.addEventListener('input', () => {
-      $(control.id + 'Value').textContent = control.value + '%';
+      $(control.id + 'Value').textContent = control.value + (control === captionAngle ? '°' : '%');
       schedulePrepare();
     });
   }
@@ -283,7 +319,7 @@
   $('printView').onclick = () => view(true);
 
   async function save(frame) {
-    if (!current || busy || (!frame && captionLoading)) return;
+    if (!current || busy || !validPrintSize() || (!frame && captionLoading)) return;
     if (animation) {
       cancelAnimationFrame(animation);
       animation = 0;

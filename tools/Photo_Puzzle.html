@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>사진 퍼즐</title>
 <link rel="stylesheet" href="assets/keycap.css?v=filament-palette-21">
-<link rel="stylesheet" href="assets/photo-puzzle.css?v=6">
+<link rel="stylesheet" href="assets/photo-puzzle.css?v=10">
 </head>
 <body>
 <main>
@@ -36,8 +36,27 @@
         <input id="captionX" type="range" min="0" max="100" value="50">
         <label for="captionY">문구 세로 위치 <output id="captionYValue" for="captionY">4%</output></label>
         <input id="captionY" type="range" min="0" max="100" value="4">
+        <label for="captionAngle">문구 회전 각도 <output id="captionAngleValue" for="captionAngle">0°</output></label>
+        <input id="captionAngle" type="range" min="-180" max="180" value="0">
       </div>
-      <label for="orientation">퍼즐 방향
+      <label for="printSize">출력 크기
+        <select id="printSize">
+          <option value="120x90">소형 · 120 × 90 mm</option>
+          <option value="156x116" selected>기본 · 156 × 116 mm</option>
+          <option value="190x140">대형 · 190 × 140 mm</option>
+          <option value="custom">직접 입력</option>
+        </select>
+      </label>
+      <div class="print-dimensions" id="printDimensions" hidden>
+        <label for="printWidth">가로 (mm)
+          <input id="printWidth" type="number" min="90" max="200" step="1" value="156" required>
+        </label>
+        <label for="printHeight">세로 (mm)
+          <input id="printHeight" type="number" min="90" max="200" step="1" value="116" required>
+        </label>
+      </div>
+      <p class="hint" id="printSizeError" role="status" hidden>가로와 세로에 90~200 mm 사이의 정수를 입력해 주세요.</p>
+      <label for="orientation" id="orientationSetting">퍼즐 방향
         <select id="orientation">
           <option value="auto">사진에 맞춤</option>
           <option value="landscape">가로</option>
@@ -90,7 +109,7 @@
 <script src="assets/name-keyring-core.js?v=keycaps-1"></script>
 <script src="assets/bambu-project-defaults.js?v=keycaps-1"></script>
 <script src="assets/bambu-3mf.js?v=photo-puzzle-1"></script>
-<script src="assets/photo-puzzle-core.js?v=9"></script>
-<script src="assets/photo-puzzle.js?v=9"></script>
+<script src="assets/photo-puzzle-core.js?v=10"></script>
+<script src="assets/photo-puzzle.js?v=10"></script>
 </body>
 </html>

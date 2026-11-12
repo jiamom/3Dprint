@@ -13,12 +13,12 @@ window.PhotoPuzzle = (() => {
     solid: {colors: ['#FFFFFF'], changes: [], depth: 1.2}
   };
 
-  function layout(landscape, pieces = 100, seed = pageSeed) {
+  function layout(landscape, pieces = 100, seed = pageSeed, dimensions) {
     const grid = grids.get(pieces);
     if (!grid) throw Error('지원하는 퍼즐 조각 수를 선택해 주세요.');
     const [across, down] = grid;
-    return landscape ? {width: 156, height: 116, across, down, pieces, seed}
-      : {width: 116, height: 156, across: down, down: across, pieces, seed};
+    const {width, height} = dimensions ?? (landscape ? {width: 156, height: 116} : {width: 116, height: 156});
+    return {width, height, across: landscape ? across : down, down: landscape ? down : across, pieces, seed};
   }
 
   function reroll(layout) {
@@ -112,8 +112,10 @@ window.PhotoPuzzle = (() => {
       const bend = (random() - .5) * .16;
       const center = .46 + random() * .08;
       const shoulder = .15 + random() * .06;
-      const neck = shoulder * (.29 + random() * .23);
-      const bulb = shoulder * (.75 + random() * .35);
+      const span = length * (vertical ? end[1] - start[1] : end[0] - start[0]);
+      // Leave enough material across small tabs after the clearance is cut.
+      const neck = Math.max(shoulder * (.29 + random() * .23), gap * .95 / span);
+      const bulb = Math.max(shoulder * (.75 + random() * .35), neck * 1.25);
       const lean = (random() - .5) * .085;
       const crown = .56 + random() * .42;
       const direction = random() < .5 ? -1 : 1;
@@ -203,13 +205,17 @@ window.PhotoPuzzle = (() => {
     const key = [layout.width, layout.height, layout.across, layout.down, layout.seed].join(':');
     if (cachedPieces?.key === key) return cachedPieces;
     const offset = new ClipperLib.ClipperOffset(2, .005 * UNIT);
-    const paths = intPaths(pieceContours(layout)).map(path => {
+    // Insetting both sides of each piece makes the clearance. Allow for that inset at the outer edges.
+    const expanded = {...layout, width: layout.width + gap, height: layout.height + gap};
+    const paths = intPaths(pieceContours(expanded)).map(path => {
       offset.Clear();
       offset.AddPath(path, ClipperLib.JoinType.jtRound, ClipperLib.EndType.etClosedPolygon);
       const result = [];
       offset.Execute(result, -gap * UNIT / 2);
-      if (result.length !== 1) throw Error('퍼즐 조각을 만들지 못했습니다.');
-      return result[0];
+      if (!result.length) throw Error('퍼즐 조각을 만들지 못했습니다.');
+      // The inset can leave a disconnected sliver at a tight curve.
+      const area = polygon => Math.abs(ClipperLib.Clipper.Area(polygon));
+      return result.reduce((largest, polygon) => area(polygon) > area(largest) ? polygon : largest);
     });
     const outlines = paths.map(path => path.map(({X, Y}) => [X / UNIT, Y / UNIT]));
     cachedPieces = {key, paths, outlines};

@@ -3,6 +3,8 @@ window.PhotoPuzzle = (() => {
   const grids = new Map([[12, [4, 3]], [24, [6, 4]], [48, [8, 6]], [80, [10, 8]],
     [100, [10, 10]], [144, [12, 12]], [192, [16, 12]]]);
   const gap = .34;
+  // Keep one seed for the document so framing and export use the same cuts.
+  const pageSeed = crypto.getRandomValues(new Uint32Array(1))[0];
   const tones = [[31, 26, 24], [87, 32, 29], [128, 47, 36], [170, 115, 53],
     [193, 157, 104], [212, 185, 144], [226, 207, 177], [237, 224, 204], [248, 244, 231]];
   const styles = {
@@ -67,17 +69,30 @@ window.PhotoPuzzle = (() => {
     return tones[index];
   }
 
-  function seams({width, height, across, down}) {
+  function seams({width, height, across, down}, seed = pageSeed) {
     const lines = [];
-    const curves = [
-      [[.39, 0], [.47, 0], [.45, .22]],
-      [[.33, .84], [.39, 1], [.5, 1]],
-      [[.61, 1], [.67, .84], [.55, .22]],
-      [[.53, 0], [.61, 0], [.67, 0]]
-    ];
-    function edge(x, y, length, vertical, sign) {
-      const points = [[0, 0], [.33, 0]];
-      const depth = Math.min(2.7, length * .22) * sign;
+    let state = seed;
+    function random() {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      return state / 4294967296;
+    }
+    const dx = width / across, dy = height / down;
+    function edge(x, y, length, pitch, vertical) {
+      const center = .43 + random() * .14;
+      const shoulder = .15 + random() * .10;
+      const neck = shoulder * (.29 + random() * .23);
+      const bulb = shoulder * (.75 + random() * .35);
+      const lean = (random() - .5) * .085;
+      const crown = .56 + random() * .42;
+      const direction = random() < .5 ? -1 : 1;
+      const depth = Math.min(3.6, length * .28, pitch * .26) * (.68 + random() * .32) * direction;
+      const points = [[0, 0], [center - shoulder, 0]];
+      const curves = [
+        [[center - shoulder * .6, 0], [center - neck, 0], [center - neck, .24]],
+        [[center + lean - bulb, crown], [center + lean - bulb, 1], [center + lean, 1]],
+        [[center + lean + bulb, 1], [center + lean + bulb, crown], [center + neck, .24]],
+        [[center + neck, 0], [center + shoulder * .6, 0], [center + shoulder, 0]]
+      ];
       for (const controls of curves) {
         const [a, b, c, d] = [points[points.length - 1], ...controls];
         for (let i = 1; i <= 9; i++) {
@@ -88,16 +103,14 @@ window.PhotoPuzzle = (() => {
       points.push([1, 0]);
       lines.push(points.map(([t, normal]) => vertical ? [x + normal * depth, y + t * length] : [x + t * length, y + normal * depth]));
     }
-    const dx = width / across, dy = height / down;
-    const sign = (line, cell) => (line * 7 + cell * 11 + (line * cell) % 3) % 2 ? 1 : -1;
     for (let line = 1; line < across; line++) {
       for (let cell = 0; cell < down; cell++) {
-        edge(-width / 2 + line * dx, -height / 2 + cell * dy, dy, true, sign(line, cell));
+        edge(-width / 2 + line * dx, -height / 2 + cell * dy, dy, dx, true);
       }
     }
     for (let line = 1; line < down; line++) {
       for (let cell = 0; cell < across; cell++) {
-        edge(-width / 2 + cell * dx, -height / 2 + line * dy, dx, false, -sign(line, cell));
+        edge(-width / 2 + cell * dx, -height / 2 + line * dy, dx, dy, false);
       }
     }
     return lines;

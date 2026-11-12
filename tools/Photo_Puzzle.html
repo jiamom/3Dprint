@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>사진 퍼즐</title>
 <link rel="stylesheet" href="assets/keycap.css?v=filament-palette-21">
-<link rel="stylesheet" href="assets/photo-puzzle.css?v=2">
+<link rel="stylesheet" href="assets/photo-puzzle.css?v=6">
 </head>
 <body>
 <main>
@@ -15,6 +15,19 @@
       <p class="hint">사진을 선택해 퍼즐 3MF를 만드세요.</p>
       <label for="photoFile">사진 선택
         <input type="file" id="photoFile" accept="image/*">
+      </label>
+      <label for="photoCaption">사진 위 문구
+        <input id="photoCaption" type="text" maxlength="60" placeholder="문구 입력">
+      </label>
+      <label for="captionFont">문구 글꼴
+        <select id="captionFont">
+          <option value="">기본 고딕</option>
+          <option value="PuzzleJua">배민 주아</option>
+          <option value="PuzzleDohyeon">배민 도현</option>
+          <option value="PuzzleHanna">배민 한나체 Pro</option>
+          <option value="PuzzleSubway">Subway Black (영문)</option>
+          <option value="PuzzleChicalo">Chicalo (영문)</option>
+        </select>
       </label>
       <label for="orientation">퍼즐 방향
         <select id="orientation">
@@ -68,7 +81,7 @@
 <script src="assets/name-keyring-core.js?v=keycaps-1"></script>
 <script src="assets/bambu-project-defaults.js?v=keycaps-1"></script>
 <script src="assets/bambu-3mf.js?v=photo-puzzle-1"></script>
-<script src="assets/photo-puzzle-core.js?v=5"></script>
-<script src="assets/photo-puzzle.js?v=5"></script>
+<script src="assets/photo-puzzle-core.js?v=6"></script>
+<script src="assets/photo-puzzle.js?v=6"></script>
 </body>
 </html>

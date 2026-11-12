@@ -5,6 +5,7 @@
   const zoomControl = $('photoZoom');
   const printStyle = $('printStyle');
   const pieceCount = $('pieceCount');
+  const caption = $('photoCaption'), captionFont = $('captionFont');
   for (const count of PhotoPuzzle.pieceCounts) {
     pieceCount.add(new Option(count + '조각', count));
   }
@@ -16,10 +17,13 @@
   };
   const shade = document.createElement('canvas'), shadeCtx = shade.getContext('2d');
   let photo, current, drag, animation = 0, request = 0, busy = false, showPrint = false;
+  let captionLoading = false;
+  let captionRevision = 0;
   let framing = {zoom: 1, x: .5, y: .5};
 
   function refreshButtons() {
-    $('savePuzzle').disabled = $('saveFrame').disabled = busy || !current;
+    $('savePuzzle').disabled = busy || !current || captionLoading;
+    $('saveFrame').disabled = busy || !current;
     zoomControl.disabled = $('fitPhoto').disabled = $('resetFraming').disabled = !photo;
   }
 
@@ -73,6 +77,52 @@
     $('previewNote').hidden = !showPrint;
   }
 
+  function captionTypeface(size) {
+    const family = captionFont.value;
+    return family ? size + 'px ' + family + ', "Malgun Gothic", sans-serif'
+      : 'bold ' + size + 'px "Malgun Gothic", sans-serif';
+  }
+
+  function drawCaption(columns, rows) {
+    const text = caption.value.trim();
+    if (!text) return;
+    const width = columns * .9;
+    let size = Math.round(Math.min(columns, rows) * .09);
+    sampleCtx.save();
+    sampleCtx.font = captionTypeface(size);
+    const measuredWidth = sampleCtx.measureText(text).width;
+    if (measuredWidth > width) {
+      size = Math.max(10, Math.floor(size * width / measuredWidth));
+      sampleCtx.font = captionTypeface(size);
+    }
+    sampleCtx.textAlign = 'center';
+    sampleCtx.textBaseline = 'top';
+    sampleCtx.lineJoin = 'round';
+    sampleCtx.lineWidth = Math.max(2, size * .13);
+    sampleCtx.strokeStyle = '#000';
+    sampleCtx.fillStyle = '#fff';
+    sampleCtx.strokeText(text, columns / 2, rows * .045, width);
+    sampleCtx.fillText(text, columns / 2, rows * .045, width);
+    sampleCtx.restore();
+  }
+
+  async function updateCaption() {
+    const revision = ++captionRevision;
+    captionLoading = Boolean(caption.value.trim() && captionFont.value);
+    refreshButtons();
+    schedulePrepare();
+    if (!captionLoading) return;
+    try {
+      await document.fonts.load(captionTypeface(24), caption.value);
+    } catch {
+      // The canvas uses the system fallback if a font file cannot be loaded.
+    }
+    if (revision !== captionRevision) return;
+    captionLoading = false;
+    refreshButtons();
+    schedulePrepare();
+  }
+
   function prepare() {
     if (!photo) return;
     const option = $('orientation').value;
@@ -86,6 +136,7 @@
     sampleCtx.fillRect(0, 0, columns, rows);
     const scaleX = columns / layout.width, scaleY = rows / layout.height;
     sampleCtx.drawImage(photo, placement.x * scaleX, placement.y * scaleY, placement.width * scaleX, placement.height * scaleY);
+    drawCaption(columns, rows);
     current = {layout, columns, rows, style: printStyle.value};
     $('puzzleSize').textContent = layout.width + ' × ' + layout.height + 'mm · ' + layout.pieces + '조각';
     $('puzzleStatus').textContent = '';
@@ -190,6 +241,8 @@
     }
   });
   $('orientation').addEventListener('change', schedulePrepare);
+  caption.addEventListener('input', updateCaption);
+  captionFont.addEventListener('change', updateCaption);
   pieceCount.addEventListener('change', schedulePrepare);
   printStyle.addEventListener('change', () => {
     $('filamentHint').textContent = filamentHints[printStyle.value];
@@ -206,7 +259,7 @@
   $('printView').onclick = () => view(true);
 
   async function save(frame) {
-    if (!current || busy) return;
+    if (!current || busy || (!frame && captionLoading)) return;
     if (animation) {
       cancelAnimationFrame(animation);
       animation = 0;

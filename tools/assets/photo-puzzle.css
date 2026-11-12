@@ -1,3 +1,8 @@
+@font-face{font-family:PuzzleJua;src:url('../../fonts/otf/BMJUA_otf.otf')}
+@font-face{font-family:PuzzleDohyeon;src:url('../../fonts/otf/BMDOHYEON_otf.otf')}
+@font-face{font-family:PuzzleHanna;src:url('../../fonts/otf/BMHANNAProOTF.otf')}
+@font-face{font-family:PuzzleSubway;src:url('../../fonts/ttf/SubwayBlack-yYEvd.ttf')}
+@font-face{font-family:PuzzleChicalo;src:url('../../fonts/otf/Chicalo-ZpdvB.otf')}
 h1{font-size:26px;margin:0 0 6px;letter-spacing:-.04em}
 .controls input[type=file]{font-size:12px;padding:9px}
 .frame-download{width:100%;margin-top:8px}

@@ -47,3 +47,14 @@ test('realistic 150mm photo output validates and is exportable',()=>{
  const m=L.build(pixels(361,241,(x,y)=>[x%256,y%256,(x+y)%256,255]),361,241,{width:150,height:102});
  validate(m);const bytes=L.stl(m);assert(bytes.byteLength>10000000);assert(bytes.byteLength<20000000);
 });
+test('crop keeps source bounds, aspect and pan endpoints at every zoom',()=>{
+ for(const zoom of [1,1.05,2,4])for(const px of [-1,0,1])for(const py of [-1,0,1]){
+ const c=L.cropRect(1200,800,zoom,px,py);
+ assert(c.x>=0&&c.y>=0&&c.x+c.width<=1200+1e-8&&c.y+c.height<=800+1e-8);
+ assert.equal(c.width/c.height,1.5);
+ if(zoom===1)assert.deepEqual(c,{x:0,y:0,width:1200,height:800});
+ }
+ assert.deepEqual(L.cropRect(1200,800,2,1,1),{x:600,y:400,width:600,height:400});
+ assert.deepEqual(L.cropRect(1200,800,2,-1,-1),{x:0,y:0,width:600,height:400});
+ for(const args of [[0,10],[10,10,0],[10,10,5],[10,10,NaN]])assert.throws(()=>L.cropRect(...args));
+});

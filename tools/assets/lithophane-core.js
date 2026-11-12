@@ -9,6 +9,12 @@ function options(o){
  if(p.brightness < -100 || p.brightness > 100 || p.contrast<0.5||p.contrast>2)throw Error('밝기 또는 대비 범위를 확인하세요.');
  return p;
 }
+// Normalized crop coordinates shared by the preview and STL rasterization.
+function cropRect(width,height,zoom=1,panX=0,panY=0){
+ if(![width,height,zoom,panX,panY].every(Number.isFinite)||width<=0||height<=0||zoom<1||zoom>4)throw Error('사진 확대 설정을 확인하세요.');
+ const w=width/zoom,h=height/zoom;
+ return {x:(width-w)*(Math.max(-1,Math.min(1,panX))+1)/2,y:(height-h)*(Math.max(-1,Math.min(1,panY))+1)/2,width:w,height:h};
+}
 function luminance(r,g,b,a,p){return Math.max(0,Math.min(255,((0.2126*r+0.7152*g+0.0722*b)*(a/255)+255*(1-a/255)-127.5)*p.contrast+127.5+p.brightness));}
 function build(rgba,nx,ny,o){
  const p=options(o);
@@ -57,5 +63,5 @@ function stl(mesh){
  }
  return bytes;
 }
-const api={options,luminance,build,stl};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.Lithophane=api;
+const api={options,cropRect,luminance,build,stl};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.Lithophane=api;
 })(typeof window!=='undefined'?window:globalThis);

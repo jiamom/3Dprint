@@ -74,8 +74,7 @@ window.PhotoPuzzle = (() => {
     return tones[index];
   }
 
-  function seams({width, height, across, down, seed}) {
-    const lines = [];
+  function pieceContours({width, height, across, down, seed}) {
     let state = seed;
     function random() {
       state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
@@ -98,7 +97,16 @@ window.PhotoPuzzle = (() => {
         + (c[axis] * (1 - u) + d[axis] * u) * v;
       return [(interpolate(0) - across / 2) * dx, (interpolate(1) - down / 2) * dy];
     }
+    function junction(column, row, side) {
+      const inset = column > 0 && column < across && row > 0 && row < down ? .19 * side : 0;
+      return [column + inset, row + inset];
+    }
     function edge(column, row, vertical) {
+      const start = junction(column, row, 1);
+      const end = junction(column + (vertical ? 0 : 1), row + (vertical ? 1 : 0), -1);
+      if (vertical ? column === 0 || column === across : row === 0 || row === down) {
+        return [warp(...start), warp(...end)];
+      }
       const length = vertical ? dy : dx;
       const pitch = vertical ? dx : dy;
       const bend = (random() - .5) * .16;
@@ -109,7 +117,7 @@ window.PhotoPuzzle = (() => {
       const lean = (random() - .5) * .085;
       const crown = .56 + random() * .42;
       const direction = random() < .5 ? -1 : 1;
-      const depth = Math.min(3.6 / pitch, length / pitch * .25, .20) * (.68 + random() * .32) * direction;
+      const depth = Math.min(3.6 / pitch, length / pitch * .22, .18) * (.68 + random() * .32) * direction;
       const left = center - shoulder, right = center + shoulder;
       const points = [[0, 0], [left / 3, 0], [left * 2 / 3, 0], [left, 0]];
       const curves = [
@@ -126,36 +134,94 @@ window.PhotoPuzzle = (() => {
         }
       }
       points.push([right + (1 - right) / 3, 0], [right + (1 - right) * 2 / 3, 0], [1, 0]);
-      lines.push(points.map(([t, tab]) => {
+      return points.map(([t, tab]) => {
         const offset = tab * depth + Math.sin(Math.PI * t) ** 2 * bend;
-        return vertical ? warp(column + offset, row + t) : warp(column + t, row + offset);
-      }));
+        const x = start[0] * (1 - t) + end[0] * t;
+        const y = start[1] * (1 - t) + end[1] * t;
+        return vertical ? warp(x + offset, y) : warp(x, y + offset);
+      });
     }
-    for (let line = 1; line < across; line++) {
-      for (let cell = 0; cell < down; cell++) {
-        edge(line, cell, true);
+    const horizontal = Array.from({length: down + 1}, (_, row) =>
+      Array.from({length: across}, (_, column) => edge(column, row, false)));
+    const vertical = Array.from({length: down}, (_, row) =>
+      Array.from({length: across + 1}, (_, column) => edge(column, row, true)));
+    const pieces = [];
+    const radius = Math.min(dx, dy) * .19;
+    for (let row = 0; row < down; row++) {
+      for (let column = 0; column < across; column++) {
+        const bottom = horizontal[row][column], right = vertical[row][column + 1];
+        const top = [...horizontal[row + 1][column]].reverse();
+        const left = [...vertical[row][column]].reverse();
+        const edges = [bottom];
+        // The short diagonal edges turn an interior piece into a six-sided shape.
+        if (row > 0 && column + 1 < across) edges.push([bottom.at(-1), right[0]]);
+        edges.push(right, top);
+        if (column > 0 && row + 1 < down) edges.push([top.at(-1), left[0]]);
+        edges.push(left);
+        pieces.push(roundPiece(edges, radius));
       }
     }
-    for (let line = 1; line < down; line++) {
-      for (let cell = 0; cell < across; cell++) {
-        edge(cell, line, false);
+    return pieces;
+  }
+
+  function roundPiece(edges, radius) {
+    const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    function trimStart(edge, amount) {
+      for (let i = 1; i < edge.length; i++) {
+        const a = edge[i - 1], b = edge[i];
+        const length = distance(a, b);
+        if (amount < length) {
+          const t = amount / length;
+          return [[a[0] * (1 - t) + b[0] * t, a[1] * (1 - t) + b[1] * t], ...edge.slice(i)];
+        }
+        amount -= length;
       }
+      return edge.slice(-1);
     }
-    return lines;
+    const trimmed = edges.map(edge => {
+      const length = edge.slice(1).reduce((sum, point, i) => sum + distance(point, edge[i]), 0);
+      const inset = Math.min(radius, length * .36);
+      return trimStart(trimStart(edge, inset).reverse(), inset).reverse();
+    });
+    return trimmed.flatMap((edge, i) => {
+      const next = (i + 1) % edges.length;
+      const a = edge.at(-1), corner = edges[next][0], b = trimmed[next][0];
+      const curve = Array.from({length: 7}, (_, step) => {
+        const t = (step + 1) / 8, u = 1 - t;
+        return [0, 1].map(axis => u * u * a[axis] + 2 * u * t * corner[axis] + t * t * b[axis]);
+      });
+      return edge.concat(curve);
+    });
   }
 
   function rectangle(width, height) {
     return intPaths([[[-width / 2, -height / 2], [width / 2, -height / 2], [width / 2, height / 2], [-width / 2, height / 2]]]);
   }
 
-  function cutter(layout) {
+  let cachedPieces;
+  function puzzlePieces(layout) {
+    const key = [layout.width, layout.height, layout.across, layout.down, layout.seed].join(':');
+    if (cachedPieces?.key === key) return cachedPieces;
     const offset = new ClipperLib.ClipperOffset(2, .005 * UNIT);
-    offset.AddPaths(intPaths(seams(layout)), ClipperLib.JoinType.jtRound, ClipperLib.EndType.etOpenRound);
-    const paths = [];
-    offset.Execute(paths, gap * UNIT / 2);
-    const cuts = clip(paths);
-    const pieces = clip(rectangle(layout.width, layout.height), pathsOf(cuts), ClipperLib.ClipType.ctDifference);
-    if (pieces.Childs().length !== layout.pieces) throw Error('퍼즐 조각을 만들지 못했습니다.');
+    const paths = intPaths(pieceContours(layout)).map(path => {
+      offset.Clear();
+      offset.AddPath(path, ClipperLib.JoinType.jtRound, ClipperLib.EndType.etClosedPolygon);
+      const result = [];
+      offset.Execute(result, -gap * UNIT / 2);
+      if (result.length !== 1) throw Error('퍼즐 조각을 만들지 못했습니다.');
+      return result[0];
+    });
+    const outlines = paths.map(path => path.map(({X, Y}) => [X / UNIT, Y / UNIT]));
+    cachedPieces = {key, paths, outlines};
+    return cachedPieces;
+  }
+
+  function outlines(layout) {
+    return puzzlePieces(layout).outlines;
+  }
+
+  function cutter(layout) {
+    const cuts = clip(rectangle(layout.width + 1, layout.height + 1), puzzlePieces(layout).paths, ClipperLib.ClipType.ctDifference);
     return extrude(cuts, 0, 3.2);
   }
 
@@ -218,5 +284,5 @@ window.PhotoPuzzle = (() => {
       {name: 'Puzzle Frame', position: [128, 128, 0], parts: [{name: 'Frame', mesh: repair(mesh), color: '#000000'}]}
     ]}).bytes;
   }
-  return {pieceCounts: [...grids.keys()], layout, reroll, photoPlacement, heightField, previewColor, seams, puzzle3mf, frame3mf};
+  return {pieceCounts: [...grids.keys()], layout, reroll, photoPlacement, heightField, previewColor, outlines, puzzle3mf, frame3mf};
 })();

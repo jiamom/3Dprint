@@ -60,20 +60,18 @@
       ctx.drawImage(sampling, 0, 0, canvas.width, canvas.height);
     }
     ctx.beginPath();
-    for (const seam of PhotoPuzzle.seams(layout)) {
-      seam.forEach(([x, y], i) => {
+    ctx.rect(0, 0, canvas.width, canvas.height);
+    for (const outline of PhotoPuzzle.outlines(layout)) {
+      outline.forEach(([x, y], i) => {
         const px = (x / layout.width + .5) * canvas.width;
         const py = (.5 - y / layout.height) * canvas.height;
         if (i) ctx.lineTo(px, py);
         else ctx.moveTo(px, py);
       });
+      ctx.closePath();
     }
-    ctx.strokeStyle = 'rgba(255,255,255,.56)';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(23,19,16,.78)';
-    ctx.lineWidth = 1.3;
-    ctx.stroke();
+    ctx.fillStyle = 'rgba(23,19,16,.78)';
+    ctx.fill('evenodd');
     $('photoPlaceholder').hidden = true;
     canvas.hidden = false;
     $('framingHint').hidden = false;

@@ -212,10 +212,11 @@ window.PhotoPuzzle = (() => {
       offset.AddPath(path, ClipperLib.JoinType.jtRound, ClipperLib.EndType.etClosedPolygon);
       const result = [];
       offset.Execute(result, -gap * UNIT / 2);
-      if (!result.length) throw Error('퍼즐 조각을 만들지 못했습니다.');
+      const contours = clip(result).Childs().map(piece => piece.Contour());
+      if (!contours.length) throw Error('퍼즐 조각을 만들지 못했습니다.');
       // The inset can leave a disconnected sliver at a tight curve.
       const area = polygon => Math.abs(ClipperLib.Clipper.Area(polygon));
-      return result.reduce((largest, polygon) => area(polygon) > area(largest) ? polygon : largest);
+      return contours.reduce((largest, polygon) => area(polygon) > area(largest) ? polygon : largest);
     });
     const outlines = paths.map(path => path.map(({X, Y}) => [X / UNIT, Y / UNIT]));
     cachedPieces = {key, paths, outlines};

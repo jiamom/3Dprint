@@ -3,7 +3,7 @@ window.PhotoPuzzle = (() => {
   const grids = new Map([[12, [4, 3]], [24, [6, 4]], [48, [8, 6]], [80, [10, 8]],
     [100, [10, 10]], [144, [12, 12]], [192, [16, 12]]]);
   const gap = .34;
-  // Keep one seed for the document so framing and export use the same cuts.
+  // The layout carries its seed so the preview and export use the same cuts.
   const pageSeed = crypto.getRandomValues(new Uint32Array(1))[0];
   const tones = [[31, 26, 24], [87, 32, 29], [128, 47, 36], [170, 115, 53],
     [193, 157, 104], [212, 185, 144], [226, 207, 177], [237, 224, 204], [248, 244, 231]];
@@ -13,12 +13,17 @@ window.PhotoPuzzle = (() => {
     solid: {colors: ['#FFFFFF'], changes: [], depth: 1.2}
   };
 
-  function layout(landscape, pieces = 100) {
+  function layout(landscape, pieces = 100, seed = pageSeed) {
     const grid = grids.get(pieces);
     if (!grid) throw Error('지원하는 퍼즐 조각 수를 선택해 주세요.');
     const [across, down] = grid;
-    return landscape ? {width: 156, height: 116, across, down, pieces}
-      : {width: 116, height: 156, across: down, down: across, pieces};
+    return landscape ? {width: 156, height: 116, across, down, pieces, seed}
+      : {width: 116, height: 156, across: down, down: across, pieces, seed};
+  }
+
+  function reroll(layout) {
+    const seed = crypto.getRandomValues(new Uint32Array(1))[0];
+    return {...layout, seed: seed === layout.seed ? (seed + 1) >>> 0 : seed};
   }
 
   function photoPlacement(width, height, target, {zoom = 1, x = .5, y = .5} = {}) {
@@ -69,7 +74,7 @@ window.PhotoPuzzle = (() => {
     return tones[index];
   }
 
-  function seams({width, height, across, down}, seed = pageSeed) {
+  function seams({width, height, across, down, seed}) {
     const lines = [];
     let state = seed;
     function random() {
@@ -190,5 +195,5 @@ window.PhotoPuzzle = (() => {
       {name: 'Puzzle Frame', position: [128, 128, 0], parts: [{name: 'Frame', mesh: repair(mesh), color: '#000000'}]}
     ]}).bytes;
   }
-  return {pieceCounts: [...grids.keys()], layout, photoPlacement, heightField, previewColor, seams, puzzle3mf, frame3mf};
+  return {pieceCounts: [...grids.keys()], layout, reroll, photoPlacement, heightField, previewColor, seams, puzzle3mf, frame3mf};
 })();

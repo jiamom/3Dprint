@@ -5,6 +5,7 @@
   const zoomControl = $('photoZoom');
   const printStyle = $('printStyle');
   const pieceCount = $('pieceCount');
+  const refreshCuts = $('refreshCuts');
   const caption = $('photoCaption'), captionFont = $('captionFont');
   for (const count of PhotoPuzzle.pieceCounts) {
     pieceCount.add(new Option(count + '조각', count));
@@ -24,6 +25,7 @@
   function refreshButtons() {
     $('savePuzzle').disabled = busy || !current || captionLoading;
     $('saveFrame').disabled = busy || !current;
+    refreshCuts.disabled = busy || !current;
     zoomControl.disabled = $('fitPhoto').disabled = $('resetFraming').disabled = !photo;
   }
 
@@ -127,7 +129,7 @@
     if (!photo) return;
     const option = $('orientation').value;
     const landscape = option === 'landscape' || (option === 'auto' && photo.width >= photo.height);
-    const layout = PhotoPuzzle.layout(landscape, Number(pieceCount.value));
+    const layout = PhotoPuzzle.layout(landscape, Number(pieceCount.value), current?.layout.seed);
     const placement = clampFraming(layout);
     const columns = Math.ceil(layout.width / .32) + 1, rows = Math.ceil(layout.height / .32) + 1;
     if (sampling.width !== columns) sampling.width = columns;
@@ -241,6 +243,16 @@
     }
   });
   $('orientation').addEventListener('change', schedulePrepare);
+  refreshCuts.onclick = () => {
+    if (refreshCuts.disabled) return;
+    current.layout = PhotoPuzzle.reroll(current.layout);
+    draw();
+  };
+  window.addEventListener('message', event => {
+    if (event.source !== window.parent || event.source === window) return;
+    if (location.protocol !== 'file:' && event.origin !== location.origin) return;
+    if (event.data === 'photo-puzzle:refresh-cuts') refreshCuts.click();
+  });
   caption.addEventListener('input', updateCaption);
   captionFont.addEventListener('change', updateCaption);
   pieceCount.addEventListener('change', schedulePrepare);

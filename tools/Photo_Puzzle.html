@@ -80,6 +80,16 @@
         </select>
       </label>
       <p class="hint" id="filamentHint">검정·빨강·노랑·흰색 PLA를 층마다 바꿔 사진의 명암을 표현합니다.</p>
+      <label for="printInfill">내부 채움
+        <select id="printInfill">
+          <option value="15">기본 · 15%</option>
+          <option value="10">필라멘트 절약 · 10%</option>
+          <option value="5">최소 채움 · 5%</option>
+          <option value="0">속 비우기 · 0%</option>
+        </select>
+      </label>
+      <p class="hint">퍼즐과 받침판 3MF에 적용됩니다.</p>
+      <p class="hint" id="hollowHint" hidden>0%에서는 넓은 조각이나 받침판의 윗면이 처질 수 있습니다.</p>
       <p id="puzzleSize" class="hint"></p>
       <button type="button" class="primary" id="savePuzzle" disabled>퍼즐 3MF 저장</button>
       <button type="button" id="saveFrame" class="frame-download" disabled>맞춤 받침판 3MF 저장</button>
@@ -109,7 +119,7 @@
 <script src="assets/name-keyring-core.js?v=keycaps-1"></script>
 <script src="assets/bambu-project-defaults.js?v=keycaps-1"></script>
 <script src="assets/bambu-3mf.js?v=photo-puzzle-1"></script>
-<script src="assets/photo-puzzle-core.js?v=11"></script>
-<script src="assets/photo-puzzle.js?v=10"></script>
+<script src="assets/photo-puzzle-core.js?v=12"></script>
+<script src="assets/photo-puzzle.js?v=12"></script>
 </body>
 </html>

@@ -4,6 +4,7 @@
   const sampling = document.createElement('canvas'), sampleCtx = sampling.getContext('2d', {willReadFrequently: true});
   const zoomControl = $('photoZoom');
   const printStyle = $('printStyle');
+  const printInfill = $('printInfill');
   const printSize = $('printSize'), printWidth = $('printWidth'), printHeight = $('printHeight');
   const orientation = $('orientation');
   const pieceCount = $('pieceCount');
@@ -304,6 +305,9 @@
     });
   }
   pieceCount.addEventListener('change', schedulePrepare);
+  printInfill.addEventListener('change', () => {
+    $('hollowHint').hidden = printInfill.value !== '0';
+  });
   printStyle.addEventListener('change', () => {
     $('filamentHint').textContent = filamentHints[printStyle.value];
     if (photo) view(true);
@@ -326,13 +330,14 @@
       prepare();
     }
     const {layout, columns, rows, style} = current;
+    const infill = printInfill.value;
     const field = frame ? null : heightField();
     busy = true;
     refreshButtons();
     $('puzzleStatus').textContent = '3MF를 만드는 중입니다.';
     await new Promise(resolve => setTimeout(resolve, 40));
     try {
-      const bytes = frame ? PhotoPuzzle.frame3mf(layout) : PhotoPuzzle.puzzle3mf(layout, field, columns, rows, style);
+      const bytes = frame ? PhotoPuzzle.frame3mf(layout, infill) : PhotoPuzzle.puzzle3mf(layout, field, columns, rows, style, infill);
       const url = URL.createObjectURL(new Blob([bytes], {type: 'model/3mf'}));
       const link = document.createElement('a');
       link.href = url;

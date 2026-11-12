@@ -258,13 +258,29 @@ window.PhotoPuzzle = (() => {
     return {v, f};
   }
 
-  function puzzle3mf(layout, field, columns, rows, style = 'color') {
+  function infillSettings(infill, topLayers, bottomLayers) {
+    if (infill === '15') return {};
+    return {
+      sparse_infill_density: infill + '%',
+      minimum_sparse_infill_area: '0',
+      top_shell_layers: topLayers,
+      bottom_shell_layers: bottomLayers,
+      top_shell_thickness: '0',
+      bottom_shell_thickness: '0'
+    };
+  }
+
+  function puzzle3mf(layout, field, columns, rows, style = 'color', infill = '15') {
     const {colors, changes} = styles[style];
     const title = 'Photo Puzzle - ' + layout.pieces + ' pieces';
     return Bambu3MF.write({
       title,
       filamentColors: colors,
-      projectSettings: {layer_height: '0.08', initial_layer_print_height: '0.2', enable_support: '0', enable_prime_tower: changes.length ? '1' : '0'},
+      projectSettings: {
+        layer_height: '0.08', initial_layer_print_height: '0.2',
+        enable_support: '0', enable_prime_tower: changes.length ? '1' : '0',
+        ...infillSettings(infill, '5', '4')
+      },
       layerChanges: changes,
       objects: [{name: title, position: [128, 128, 0], parts: [
         {name: 'Photo relief', mesh: relief(layout, field, columns, rows), color: colors[0]},
@@ -273,7 +289,7 @@ window.PhotoPuzzle = (() => {
     }).bytes;
   }
 
-  function frame3mf({width, height}) {
+  function frame3mf({width, height}, infill = '15') {
     const innerWidth = width + .7, innerHeight = height + .7;
     const outer = clip(rectangle(innerWidth + 4, innerHeight + 4));
     const inside = clip(rectangle(innerWidth, innerHeight));
@@ -287,7 +303,7 @@ window.PhotoPuzzle = (() => {
     walls(innerWalls, inside, base, top);
     const ids = innerWalls.v.map(v => vertex(mesh, ...v));
     for (const [a, b, c] of innerWalls.f) mesh.f.push([ids[a], ids[c], ids[b]]);
-    return Bambu3MF.write({title: 'Photo Puzzle Frame', projectSettings: {layer_height: '0.20'}, objects: [
+    return Bambu3MF.write({title: 'Photo Puzzle Frame', projectSettings: {layer_height: '0.20', ...infillSettings(infill, '3', '2')}, objects: [
       {name: 'Puzzle Frame', position: [128, 128, 0], parts: [{name: 'Frame', mesh: repair(mesh), color: '#000000'}]}
     ]}).bytes;
   }

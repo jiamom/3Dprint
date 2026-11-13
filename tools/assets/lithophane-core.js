@@ -1,7 +1,7 @@
 (function(root){
 'use strict';
 function options(o){
- const p=Object.assign({width:150,height:100,min:0.8,max:3,frame:3,brightness:0,contrast:1,mirror:false},o);
+ const p=Object.assign({width:150,height:100,min:1,max:3,frame:3,brightness:0,contrast:1,mirror:false},o);
  for(const k of ['width','height','min','max','frame','brightness','contrast'])if(!Number.isFinite(p[k]))throw Error('설정값은 숫자여야 합니다.');
  if(p.width<20||p.height<20||p.width>220||p.height>220)throw Error('가로와 세로는 20~220 mm로 설정하세요.');
  if(p.min<0.4||p.max>6||p.max<=p.min)throw Error('최소 두께 0.4 mm 이상, 최대 두께 6 mm 이하이며 최대가 더 커야 합니다.');

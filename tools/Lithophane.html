@@ -18,7 +18,8 @@ fieldset{border:1px solid #cad6c4;border-radius:10px;margin:16px 0;padding:12px}
 </fieldset>
 <label for="width">가로 크기 (mm, 테두리 포함)</label><input id="width" type="number" value="150" min="20" max="220" step="1">
 <p id="dimensions" class="hint">사진 비율을 유지하며 세로를 자동 계산합니다.</p>
-<div class="row"><div><label for="min">최소 두께 (mm)</label><input id="min" type="number" value="0.8" min="0.4" max="5.9" step="0.1"></div><div><label for="max">최대 두께 (mm)</label><input id="max" type="number" value="3" min="0.5" max="6" step="0.1"></div></div>
+<div class="row"><div><label for="min">최소 두께 (mm)</label><input id="min" type="number" value="1" min="0.4" max="5.9" step="0.1"></div><div><label for="max">최대 두께 (mm)</label><input id="max" type="number" value="3" min="0.5" max="6" step="0.1"></div></div>
+<p class="hint">기본 두께는 최소 1 mm, 최대 3 mm입니다.</p>
 <label for="frame">테두리 폭 (mm)</label><input id="frame" type="number" value="3" min="0" max="10" step="1">
 <label for="quality">해상도 (샘플 간격)</label><select id="quality"><option value="0.6">빠르게 · 0.6 mm</option><option value="0.4" selected>기본 · 0.4 mm</option><option value="0.3">정밀 · 0.3 mm (큰 파일)</option></select>
 <label for="brightness">밝기 <output id="brightnessValue">0</output></label><input id="brightness" type="range" value="0" min="-100" max="100" step="1">
@@ -40,4 +41,4 @@ fieldset{border:1px solid #cad6c4;border-radius:10px;margin:16px 0;padding:12px}
 4. 슬라이스 미리보기에서 빈 공간·떠 있는 부분·출력판 크기를 확인하세요. 먼저 작은 시험판으로 밝기를 확인하면 좋아요.<br>
 5. 뒤쪽에는 열이 적은 LED를 사용하세요. 전구나 뜨거운 조명을 PLA에 밀착하지 마세요.
 </div></section></div></main>
-<script src="assets/lithophane-core.js?v=2"></script><script src="assets/lithophane.js?v=2"></script></body></html>
+<script src="assets/lithophane-core.js?v=3"></script><script src="assets/lithophane.js?v=2"></script></body></html>

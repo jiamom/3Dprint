@@ -21,11 +21,11 @@ test('closed consistently oriented manifold, exact dimensions and positive volum
 });
 test('white is thin, black is thick, transparent is white, and orientation is not inverted',()=>{
  const m=L.build(pixels(2,2,(x,y)=>x===0?[0,0,0,255]:[255,255,255,255]),2,2,{frame:0});
- assert.equal(m.v[0][2],3);assert(Math.abs(m.v[1][2]-.8)<1e-10);
- const t=L.build(pixels(2,2,()=>[0,0,0,0]),2,2,{frame:0});assert(Math.abs(t.v[0][2]-.8)<1e-10);
- assert(Math.abs(validate(t)-150*100*.8)<1e-6);
- const r=L.build(pixels(2,2,(x,y)=>[y*255,y*255,y*255,255]),2,2,{frame:0});assert(Math.abs(r.v[0][2]-.8)<1e-10);assert.equal(r.v[2][2],3);
- const flip=L.build(pixels(2,2,(x,y)=>[x*255,x*255,x*255,255]),2,2,{frame:0,mirror:true});assert(Math.abs(flip.v[0][2]-.8)<1e-10);
+ assert.equal(m.v[0][2],3);assert(Math.abs(m.v[1][2]-1)<1e-10);
+ const t=L.build(pixels(2,2,()=>[0,0,0,0]),2,2,{frame:0});assert(Math.abs(t.v[0][2]-1)<1e-10);
+ assert(Math.abs(validate(t)-150*100*1)<1e-6);
+ const r=L.build(pixels(2,2,(x,y)=>[y*255,y*255,y*255,255]),2,2,{frame:0});assert(Math.abs(r.v[0][2]-1)<1e-10);assert.equal(r.v[2][2],3);
+ const flip=L.build(pixels(2,2,(x,y)=>[x*255,x*255,x*255,255]),2,2,{frame:0,mirror:true});assert(Math.abs(flip.v[0][2]-1)<1e-10);
 });
 test('binary STL roundtrip has finite normals and vertices and exact byte count',()=>{
  const m=L.build(pixels(25,17,(x,y)=>[x*10,y*10,128,255]),25,17,{}),b=L.stl(m),d=new DataView(b);validate(m);
@@ -57,4 +57,11 @@ test('crop keeps source bounds, aspect and pan endpoints at every zoom',()=>{
  assert.deepEqual(L.cropRect(1200,800,2,1,1),{x:600,y:400,width:600,height:400});
  assert.deepEqual(L.cropRect(1200,800,2,-1,-1),{x:0,y:0,width:600,height:400});
  for(const args of [[0,10],[10,10,0],[10,10,5],[10,10,NaN]])assert.throws(()=>L.cropRect(...args));
+});
+
+test('page and core start with the reference 1 to 3 mm thickness',()=>{
+ const p=L.options({});assert.equal(p.min,1);assert.equal(p.max,3);
+ const html=fs.readFileSync(path.join(__dirname,'../Lithophane.html'),'utf8');
+ assert.match(html,/id="min" type="number" value="1"/);
+ assert.match(html,/id="max" type="number" value="3"/);
 });
